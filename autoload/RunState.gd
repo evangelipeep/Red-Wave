@@ -7,6 +7,8 @@ extends Node
 var coins: int = 0
 var dizziness: int = 0
 var current_zone: String = ""        # в какой зоне игрок ("" = центр/мост)
+var main_quest: Array = []           # бандл атомов главного квеста (QuestGenerator)
+var rides_total: int = 0             # сколько горок проехал (прокси-прогресс, фаза 1)
 var _dizzy_decay_accum: float = 0.0
 
 const DIZZY_DECAY_EVERY := 6.0   # сек на −1 головокружения
@@ -18,6 +20,7 @@ func reset() -> void:
 	coins = GameConstants.COINS_START
 	dizziness = 0
 	current_zone = ""
+	rides_total = 0
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 
 func _process(delta: float) -> void:
@@ -34,6 +37,7 @@ func add_dizziness(delta: int) -> void:
 
 # Горка добавляет головокружение по своему тегу dizzy.
 func _on_slide_completed(_player_id: int, slide_id: String) -> void:
+	rides_total += 1
 	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
 	add_dizziness(int(info.get("dizzy", 0)))
 

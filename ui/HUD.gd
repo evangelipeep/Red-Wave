@@ -17,7 +17,7 @@ var _toast_time: float = 0.0
 
 func _ready() -> void:
 	_toast.text = ""
-	_hint.text = "WASD ходьба · Shift бег · Space прыжок · E снек · Q блюдо · T туалет"
+	_hint.text = "WASD · Shift бег · Space прыжок · E снек · Q блюдо · T туалет · M карта"
 	EventBus.toast.connect(_on_toast)
 
 func _process(delta: float) -> void:

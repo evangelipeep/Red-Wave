@@ -41,16 +41,30 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 
 var _was_on_floor: bool = true
 var _water_count: int = 0   # сколько водных зон сейчас перекрываем
 
+var _active: bool = false   # игрок управляем только во время забега (не на планировании)
+
 func _ready() -> void:
 	add_to_group("player")
 	_ensure_inputs()
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	EventBus.run_started.connect(_on_run_started)
+	EventBus.run_planning_started.connect(_on_run_planning)
 	if has_node("WaterSensor"):
 		var ws: Area3D = $WaterSensor
 		ws.area_entered.connect(_on_water_entered)
 		ws.area_exited.connect(_on_water_exited)
 
+func _on_run_started() -> void:
+	_active = true
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _on_run_planning() -> void:
+	_active = false
+	velocity = Vector3.ZERO
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
 func _unhandled_input(event: InputEvent) -> void:
+	if not _active:
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var mm := event as InputEventMouseMotion
 		var dx := -mm.relative.x * mouse_sensitivity
@@ -78,6 +92,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				% WeightSystem.toilet_ready_in_hours())
 
 func _physics_process(delta: float) -> void:
+	if not _active:
+		return          # планирование/пауза — игрок заморожен
 	if riding:
 		return          # позицию задаёт SlideRail через ride_to()
 	if swimming:
@@ -273,6 +289,7 @@ func _ensure_inputs() -> void:
 	_add_key("eat_snack", KEY_E)
 	_add_key("eat_meal", KEY_Q)
 	_add_key("toilet", KEY_T)
+	_add_key("map", KEY_M)
 
 func _add_key(action: String, keycode: Key) -> void:
 	if not InputMap.has_action(action):

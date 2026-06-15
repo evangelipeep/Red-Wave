@@ -19,6 +19,7 @@ tonemap_mode = 2
 
 [node name="TestPlayground" type="Node3D"]
 script = ExtResource("3")
+use_planning = false
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("env")
