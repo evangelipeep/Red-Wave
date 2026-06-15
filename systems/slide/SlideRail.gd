@@ -197,8 +197,7 @@ func _on_mount_body_entered(body: Node3D) -> void:
 	# Лок экстрима по весу (GDD §5): ≥91 кг не пускают.
 	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
 	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
-		print("[SlideRail] %s — экстрим заблокирован: вес %.0f ≥ %.0f кг" % [
-			slide_id, WeightSystem.kg, GameConstants.WEIGHT_LOCK])
+		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
 		return
 	_start_ride(body)
 

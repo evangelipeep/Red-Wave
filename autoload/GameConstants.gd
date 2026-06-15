@@ -25,14 +25,21 @@ const PHASE_EVENING_END: float = 0.90
 # --- Вес ---
 const WEIGHT_START: float = 80.0
 const WEIGHT_MIN: float = 70.0
-const WEIGHT_MAX: float = 95.0
-const WEIGHT_LOCK: float = 91.0          # >= → нет экстрима
+const WEIGHT_MAX: float = 100.0          # потолок набора
+const WEIGHT_LOCK: float = 91.0          # >= → не пускают на экстрим (тост)
 const SPEED_AT_70: float = 0.85
 const SPEED_AT_90: float = 1.15
 const SNACK_KG: float = 1.0
 const MEAL_KG: float = 2.0
 const TOILET_KG: float = -3.0
-const RUN_M_PER_KG: float = 400.0
+const TOILET_COOLDOWN_FRAC: float = 0.25 # туалет раз в 3 ч (3/12 дня)
+
+# --- Сжигание калорий (бег/прыжки > ходьба/плавание) ---
+const CAL_PER_KG: float = 100.0          # калорий на −1 кг
+const CAL_WALK: float = 1.0              # в секунду при ходьбе
+const CAL_RUN: float = 3.0              # в секунду при беге
+const CAL_SWIM: float = 0.8             # в секунду при плавании
+const CAL_JUMP: float = 4.0             # за прыжок
 
 # --- Головокружение ---
 const DIZZY_MAX: int = 5

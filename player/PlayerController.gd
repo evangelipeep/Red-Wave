@@ -23,7 +23,7 @@ class_name PlayerController
 @export var swim_accel: float = 6.0
 @export var swim_rise_speed: float = 3.5     # всплытие/погружение (Space/Ctrl)
 @export var swim_idle_sink: float = 0.8      # лёгкое погружение в покое
-@export var swim_vertical_accel: float = 8.0 # ниже = дольше скользим по инерции под водой
+@export var water_drag: float = 1.5          # сопротивление воды (ниже = дольше скользишь по инерции)
 @export var splash_sound: AudioStream        # звук брызг (назначь .wav/.ogg в инспекторе)
 
 var swimming: bool = false
@@ -69,7 +69,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("eat_meal"):
 		RunState.try_eat_meal()
 	elif event.is_action_pressed("toilet"):
-		WeightSystem.toilet()
+		if not WeightSystem.toilet():
+			EventBus.toast.emit("Туалет недоступен — раз в 3 часа (ещё %.1f ч)"
+				% WeightSystem.toilet_ready_in_hours())
 
 func _physics_process(delta: float) -> void:
 	if riding:
@@ -84,6 +86,7 @@ func _walk(delta: float) -> void:
 		velocity.y -= _gravity * delta
 	if is_on_floor() and Input.is_action_just_pressed("jump"):
 		velocity.y = jump_velocity
+		WeightSystem.burn(GameConstants.CAL_JUMP)   # прыжок сжигает калории — не почитеришь
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var dir := (transform.basis * Vector3(input.x, 0.0, input.y)).normalized()
@@ -98,10 +101,12 @@ func _walk(delta: float) -> void:
 	velocity.z = horiz.z
 	move_and_slide()
 
-	# Бег сжигает вес (−1 кг / 400 м). Считаем только на земле.
-	var dist := Vector2(velocity.x, velocity.z).length() * delta
-	if is_on_floor() and dist > 0.0:
-		WeightSystem.add_run_distance(dist)
+	# Активность сжигает калории: бег жжёт больше ходьбы (прыжок учтён выше).
+	if is_on_floor():
+		var ground_speed := Vector2(velocity.x, velocity.z).length()
+		if ground_speed > 0.3:
+			var rate := GameConstants.CAL_RUN if sprinting else GameConstants.CAL_WALK
+			WeightSystem.burn(rate * delta)
 
 	# Comfort: ощущение скорости + посадочный «клевок».
 	var speed_ratio := Vector2(velocity.x, velocity.z).length() / sprint_speed
@@ -115,29 +120,36 @@ func _swim(delta: float) -> void:
 	# Глубина «головы»: >0 — голова под водой, <0 — над поверхностью.
 	var depth := _water_surface_y - (global_position.y + 0.9)
 
-	# Горизонталь — туда, куда смотрим.
+	# Сопротивление воды гасит инерцию ПЛАВНО — влетаешь со скоростью и скользишь.
+	var k := clampf(water_drag * delta, 0.0, 1.0)
+	velocity = velocity.lerp(Vector3.ZERO, k)
+
+	# Горизонталь: управление добавляет силу (равновесная скорость ≈ swim_speed).
 	var dir := _cam.global_transform.basis * Vector3(input.x, 0.0, input.y)
 	var horiz := Vector3(dir.x, 0.0, dir.z)
 	if horiz.length() > 1.0:
 		horiz = horiz.normalized()
-	velocity.x = lerp(velocity.x, horiz.x * swim_speed, clampf(swim_accel * delta, 0.0, 1.0))
-	velocity.z = lerp(velocity.z, horiz.z * swim_speed, clampf(swim_accel * delta, 0.0, 1.0))
+	velocity.x += horiz.x * swim_speed * water_drag * delta
+	velocity.z += horiz.z * swim_speed * water_drag * delta
 
-	# Вертикаль (как в Minecraft): Space — всплывать, Ctrl — нырять, иначе медленно тонуть.
-	# Когда всплываешь к поверхности и продолжаешь жать Space — мягко выходишь из воды
-	# (уносишь вверх скорость ≤ swim_rise_speed), без катапульты.
-	var target_vy := -swim_idle_sink
+	# Вертикаль (как в Minecraft): Space — всплывать, Ctrl — нырять, иначе лёгкое погружение.
+	# Всплыл к поверхности и держишь Space → мягко выходишь (уносишь ≤ swim_rise_speed).
 	if Input.is_action_pressed("jump"):
-		target_vy = swim_rise_speed
+		velocity.y += swim_rise_speed * water_drag * delta
 	elif Input.is_action_pressed("swim_down"):
-		target_vy = -swim_rise_speed
-	# Над поверхностью без всплытия не «вылетаем» — мягко тянем вниз.
+		velocity.y -= swim_rise_speed * water_drag * delta
+	else:
+		velocity.y -= swim_idle_sink * water_drag * delta
 	if depth < 0.0 and not Input.is_action_pressed("jump"):
-		target_vy = minf(target_vy, -0.5)
-	velocity.y = move_toward(velocity.y, target_vy, swim_vertical_accel * delta)
+		velocity.y = minf(velocity.y, -0.3)
 
 	move_and_slide()
-	_cam.update_motion(Vector2(velocity.x, velocity.z).length() / swim_speed, false, delta, false)
+
+	# Плавание сжигает мало калорий (только при движении).
+	var swim_spd := Vector2(velocity.x, velocity.z).length()
+	if swim_spd > 0.3:
+		WeightSystem.burn(GameConstants.CAL_SWIM * delta)
+	_cam.update_motion(swim_spd / swim_speed, false, delta, false)
 	_was_on_floor = false
 
 # --- Катание с горки (управляется SlideRail). ---

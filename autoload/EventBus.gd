@@ -16,4 +16,5 @@ signal dizziness_changed(player_id: int, level: int)
 signal zone_closed(player_id: int, zone: String)            # первопроходец (server-auth позже)
 signal quest_progress(player_id: int, quest_id: String, done: bool)
 signal ping_made(player_id: int, world_pos: Vector3, context: String)
+signal toast(message: String)                               # всплывающее уведомление в HUD
 @warning_ignore_restore("unused_signal")

@@ -8,6 +8,7 @@ func _ready() -> void:
 	GameConstants.run_length = debug_run_length
 	WeightSystem.reset()
 	RunState.reset()
+	RunState.coins = 30   # DEBUG: больше монет, чтобы можно было переесть до лока ≥91 кг
 	Hype.roll()
 	Clock.start_run()
 	EventBus.run_started.emit()
