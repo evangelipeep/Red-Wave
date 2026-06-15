@@ -9,6 +9,8 @@ extends Node
 
 var kg: float = GameConstants.WEIGHT_START
 var calories_burned: float = 0.0     # за забег (это игрок и будет видеть)
+var weight_min: float = GameConstants.WEIGHT_START  # рекорды дня (для финала)
+var weight_max: float = GameConstants.WEIGHT_START
 var _kg_accum: float = 0.0           # калории к следующему −1 кг
 var _extreme_locked: bool = false
 var _last_toilet_frac: float = -1.0  # доля дня последнего туалета (−1 = не ходил)
@@ -16,6 +18,8 @@ var _last_toilet_frac: float = -1.0  # доля дня последнего ту
 func reset() -> void:
 	kg = GameConstants.WEIGHT_START
 	calories_burned = 0.0
+	weight_min = GameConstants.WEIGHT_START
+	weight_max = GameConstants.WEIGHT_START
 	_kg_accum = 0.0
 	_extreme_locked = false
 	_last_toilet_frac = -1.0
@@ -70,6 +74,8 @@ func burn_progress() -> float:
 
 func _set_kg(v: float) -> void:
 	kg = clampf(v, GameConstants.WEIGHT_MIN, GameConstants.WEIGHT_MAX)
+	weight_min = minf(weight_min, kg)
+	weight_max = maxf(weight_max, kg)
 	# Гистерезис лока: блок при ≥91, снятие при ≤90.
 	if kg >= GameConstants.WEIGHT_LOCK:
 		_extreme_locked = true

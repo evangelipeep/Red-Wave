@@ -48,6 +48,7 @@ func _ready() -> void:
 	_ensure_inputs()
 	EventBus.run_started.connect(_on_run_started)
 	EventBus.run_planning_started.connect(_on_run_planning)
+	Clock.day_finished.connect(_on_run_planning)   # конец дня — тоже заморозка
 	if has_node("WaterSensor"):
 		var ws: Area3D = $WaterSensor
 		ws.area_entered.connect(_on_water_entered)

@@ -1,10 +1,11 @@
-[gd_scene load_steps=9 format=3 uid="uid://drwtestpg0001"]
+[gd_scene load_steps=10 format=3 uid="uid://drwtestpg0001"]
 
 [ext_resource type="PackedScene" path="res://player/Player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://systems/slide/SlideRail.tscn" id="2"]
 [ext_resource type="Script" path="res://world/RunBootstrap.gd" id="3"]
 [ext_resource type="Script" path="res://world/Lighting.gd" id="4"]
 [ext_resource type="PackedScene" path="res://ui/HUD.tscn" id="5"]
+[ext_resource type="PackedScene" path="res://ui/FinaleScreen.tscn" id="6"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -48,3 +49,5 @@ size = Vector3(11, 8, 11)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 12.5)
 
 [node name="HUD" parent="." instance=ExtResource("5")]
+
+[node name="FinaleScreen" parent="." instance=ExtResource("6")]

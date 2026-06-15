@@ -1,0 +1,30 @@
+[gd_scene load_steps=2 format=3 uid="uid://drwfinale0001"]
+
+[ext_resource type="Script" path="res://ui/FinaleScreen.gd" id="1"]
+
+[node name="FinaleScreen" type="CanvasLayer"]
+script = ExtResource("1")
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 24
+
+[node name="V" type="VBoxContainer" parent="Center/Panel/Margin"]
+custom_minimum_size = Vector2(600, 0)
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Center/Panel/Margin/V"]
+theme_override_font_sizes/font_size = 30
+modulate = Color(1, 0.4, 0.35, 1)
+text = "Баллада Красной Реки"
+
+[node name="Body" type="Label" parent="Center/Panel/Margin/V"]
+text = ""

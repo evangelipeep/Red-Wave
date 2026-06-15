@@ -9,6 +9,7 @@ var dizziness: int = 0
 var current_zone: String = ""        # в какой зоне игрок ("" = центр/мост)
 var main_quest: Array = []           # бандл атомов главного квеста (QuestGenerator)
 var rides_total: int = 0             # сколько горок проехал (прокси-прогресс, фаза 1)
+var dizziness_peak: int = 0          # пик головокружения за день (для финала)
 var _dizzy_decay_accum: float = 0.0
 
 const DIZZY_DECAY_EVERY := 6.0   # сек на −1 головокружения
@@ -21,6 +22,7 @@ func reset() -> void:
 	dizziness = 0
 	current_zone = ""
 	rides_total = 0
+	dizziness_peak = 0
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 
 func _process(delta: float) -> void:
@@ -33,6 +35,7 @@ func _process(delta: float) -> void:
 
 func add_dizziness(delta: int) -> void:
 	dizziness = clampi(dizziness + delta, 0, GameConstants.DIZZY_MAX)
+	dizziness_peak = maxi(dizziness_peak, dizziness)
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 
 # Горка добавляет головокружение по своему тегу dizzy.
