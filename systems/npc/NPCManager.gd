@@ -3,7 +3,7 @@ extends Node
 ## «По умному»: фиксированный пул капсул (без физики), они сами крутят цикл
 ## очередь→спуск→бассейн→брожение. Никакой нагрузки на хост сверх N агентов.
 
-@export var npc_count: int = 8
+@export var npc_count: int = 5
 
 var _spawned: bool = false
 

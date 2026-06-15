@@ -1,10 +1,9 @@
 extends Node3D
 class_name SlideRail
-## Горка: спуск по сплайну + ЖИВАЯ очередь. В очереди стоят NPC и игрок; кто
-## впереди — тот катится (по одному за раз). NPC реально съезжают, всплывают,
-## вылезают по лестнице и уходят бродить → снова в очередь. Игроку показывает
-## светофор: красный — жди, зелёный — «вы следующий». Сделано лёгким (без физики
-## у NPC: капсулы двигаются лёрпом по точкам, общий цикл, ограниченное число).
+## Горка с ЖИВОЙ очередью. Слот «занят» весь цикл ездока: следующий стартует только
+## когда предыдущий скатился И вылез из бассейна (NPC доходит до WANDER, игрок выплыл).
+## Игрок учитывается честно: при входе в очередь запоминаем, сколько NPC впереди;
+## новые NPC встают позади. Светофор: зелёный = твоя очередь. NPC выходят сбоку.
 
 @export var slide_id: String = "klyk"
 @export var base_speed: float = 6.0
@@ -13,7 +12,8 @@ class_name SlideRail
 @export var build_demo_curve: bool = true
 @export var build_access: bool = true
 
-const NPC_RIDE_DURATION := 3.0   # сек на спуск NPC
+const NPC_RIDE_DURATION := 3.0
+const OCCUPY_TIMEOUT := 9.0   # страховка: освободить слот, даже если ездок «завис»
 
 var _path: Path3D
 var _follow: PathFollow3D
@@ -23,13 +23,19 @@ var _npc_rider: NPCAgent = null
 var _speed: float = 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
 
-var _queue: Array = []                       # очередь: NPCAgent или PlayerController
-var _player_in_queue: PlayerController = null
+var _npc_queue: Array = []          # только NPC, по порядку
+var _player_waiting: bool = false
+var _player_ref: PlayerController = null
+var _player_ahead: int = 0          # сколько NPC впереди игрока (снимок при входе)
+var _player_wait: float = 0.0
+var _player_no_wait: bool = false
 var _was_player_next: bool = false
-var _player_wait: float = 0.0                # сколько игрок ждал в очереди
-var _player_no_wait: bool = false            # прокатился почти без ожидания
 
-# Геометрия для NPC-запросов.
+var _occupied: bool = false         # слот занят (ездок не вылез из бассейна)
+var _occupant: Object = null
+var _occupy_t: float = 0.0
+var _occ_player_swam: bool = false
+
 var _top_local: Vector3
 var _pool_center: Vector3
 var _pool_radius: float = 4.5
@@ -89,7 +95,7 @@ func _setup_mount() -> void:
 	_mount.name = "Mount"
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(3, 3, 3)
+	box.size = Vector3(4, 3, 4)
 	cs.shape = box
 	_mount.add_child(cs)
 	add_child(_mount)
@@ -106,11 +112,13 @@ func _build_access_stairs(top: Vector3) -> void:
 		step.use_collision = true
 		step.position = Vector3(top.x, top.y * f - 0.2, top.z + float(steps - i) * 1.2)
 		add_child(step)
+	# Площадка на самом верху: стыкуется с лестницей (край z=1.2) и тянется вбок (+X)
+	# под очередь. НЕ заходит на ступени, иначе игрок упирается в неё снизу.
 	var plat := CSGBox3D.new()
 	plat.name = "TopPlatform"
-	plat.size = Vector3(3, 0.4, 2.5)
+	plat.size = Vector3(16, 0.4, 4.2)
 	plat.use_collision = true
-	plat.position = Vector3(top.x, top.y - 0.2, top.z + 0.8)
+	plat.position = Vector3(top.x + 6.0, top.y - 0.2, top.z - 0.9)
 	add_child(plat)
 
 func _make_material(col: Color, transparent: bool) -> StandardMaterial3D:
@@ -191,22 +199,20 @@ func _build_pool() -> void:
 	add_child(area)
 
 func _build_ladder() -> void:
-	# Наклонная лесенка из бассейна на бортик (по ней вылезают NPC).
+	# Лесенка СБОКУ бассейна (+X) — NPC всегда выходят сбоку.
 	var base := _ladder_base_local()
 	var top := _ladder_top_local()
-	var mid := (base + top) * 0.5
 	var ramp := CSGBox3D.new()
 	ramp.name = "Ladder"
 	ramp.size = Vector3(1.4, 0.2, base.distance_to(top) + 0.4)
 	ramp.use_collision = true
 	ramp.material = _make_material(Color(0.75, 0.7, 0.55), false)
 	var dir := (top - base).normalized()
-	var basis := Basis.looking_at(dir, Vector3.UP)
-	ramp.transform = Transform3D(basis, mid)
+	ramp.transform = Transform3D(Basis.looking_at(dir, Vector3.UP), (base + top) * 0.5)
 	add_child(ramp)
 
 func _build_light() -> void:
-	var post_local := _top_local + Vector3(-1.9, 1.4, 1.2)
+	var post_local := _top_local + Vector3(-2.4, 1.4, -0.5)
 	_light_red = _light_sphere(Color(1, 0.1, 0.1), post_local + Vector3(0, 0.35, 0))
 	_light_green = _light_sphere(Color(0.1, 1, 0.2), post_local)
 	_light_green.visible = false
@@ -226,31 +232,32 @@ func _light_sphere(col: Color, local_pos: Vector3) -> MeshInstance3D:
 	add_child(m)
 	return m
 
-# --- Запросы геометрии для NPC (всё в мировых координатах). ---
+# --- Геометрия для NPC (мировые координаты). Очередь по центру, за стартом. ---
 func slot_position(i: int) -> Vector3:
-	return to_global(_top_local + Vector3(1.8, 0.0, 1.4 + float(i) * 1.2))
+	# Очередь уходит вбок (+X) по площадке, фронт у старта.
+	return to_global(_top_local + Vector3(1.6 + float(i) * 1.3, 0, 0))
 
 func queue_back_position() -> Vector3:
-	return slot_position(_queue.size())
+	return slot_position(_npc_queue.size())
 
 func queue_index(agent) -> int:
-	return _queue.find(agent)
+	return _npc_queue.find(agent)
 
 func join_queue(agent) -> void:
-	if not _queue.has(agent):
-		_queue.append(agent)
+	if not _npc_queue.has(agent):
+		_npc_queue.append(agent)
 
 func leave_queue(agent) -> void:
-	_queue.erase(agent)
+	_npc_queue.erase(agent)
 
 func wander_point() -> Vector3:
 	return Vector3(randf_range(-20.0, 20.0), 0.2, randf_range(-8.0, 16.0))
 
 func _ladder_base_local() -> Vector3:
-	return _pool_center + Vector3(0, _pool_surface_y, _pool_radius - 0.4)
+	return _pool_center + Vector3(_pool_radius - 0.4, _pool_surface_y, 0)
 
 func _ladder_top_local() -> Vector3:
-	return _pool_center + Vector3(0, 0.4, _pool_radius + 0.9)
+	return _pool_center + Vector3(_pool_radius + 0.9, 0.4, 0)
 
 func ladder_base() -> Vector3:
 	return to_global(_ladder_base_local())
@@ -262,47 +269,98 @@ func ride_point(t: float) -> Vector3:
 	var baked_len := _path.curve.get_baked_length()
 	return _path.to_global(_path.curve.sample_baked(clampf(t, 0.0, 1.0) * baked_len))
 
-# --- Игрок встаёт/выходит из очереди. ---
+# --- Игрок входит/выходит из очереди. ---
 func _on_mount_body_entered(body: Node3D) -> void:
 	if not (body is PlayerController):
 		return
-	if _player_in_queue == body:
+	if _player_waiting or _occupant == body:
 		return
 	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
 	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
 		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
 		return
-	_player_in_queue = body
+	_player_waiting = true
+	_player_ref = body
+	_player_ahead = _npc_queue.size()   # снимок: новые NPC встанут позади
 	_player_wait = 0.0
-	join_queue(body)
 
 func _on_mount_body_exited(body: Node3D) -> void:
-	if body == _player_in_queue:
-		leave_queue(body)
-		_player_in_queue = null
+	if body == _player_ref:
+		_player_waiting = false
+		_player_ref = null
 		EventBus.queue_update.emit(slide_id, 0, false)
 
-func _start_ride(player: PlayerController) -> void:
-	_rider = player
-	_player_no_wait = _player_wait < 4.0   # почти не стоял в очереди
-	_player_in_queue = null
-	_speed = base_speed
-	_follow.progress = 0.0
-	_mount.monitoring = false
-	EventBus.queue_update.emit(slide_id, 0, false)
-	player.mount_rail(self)
-
 func _physics_process(delta: float) -> void:
-	_update_light()   # до диспетча: «вы следующий» успевает показаться
+	_free_occupancy(delta)
+	_update_light()
 	if _rider != null:
 		_drive_player(delta)
 	elif _npc_rider != null:
 		_drive_npc(delta)
-	else:
+	elif not _occupied:
 		_dispatch()
-	if _player_in_queue != null:
+	if _player_waiting:
 		_player_wait += delta
-		EventBus.queue_update.emit(slide_id, queue_index(_player_in_queue), true)
+		EventBus.queue_update.emit(slide_id, _player_ahead, true)
+
+func _free_occupancy(delta: float) -> void:
+	if not _occupied:
+		return
+	_occupy_t += delta
+	var done := false
+	if _occupant is NPCAgent:
+		if (_occupant as NPCAgent).state == NPCAgent.St.WANDER:
+			done = true   # NPC вылез из бассейна и пошёл бродить
+	elif _occupant is PlayerController:
+		if _rider == null:
+			var pl := _occupant as PlayerController
+			if pl.swimming:
+				_occ_player_swam = true
+			elif _occ_player_swam:
+				done = true   # игрок выплыл из бассейна
+	if _occupy_t > OCCUPY_TIMEOUT:
+		done = true
+	if done:
+		_occupied = false
+		_occupant = null
+		_occ_player_swam = false
+
+func _dispatch() -> void:
+	# Приоритет игроку, когда впереди никого не осталось.
+	if _player_waiting and _player_ahead <= 0:
+		_start_ride_player()
+		return
+	if not _npc_queue.is_empty():
+		var front: NPCAgent = _npc_queue[0]
+		if front.state == NPCAgent.St.IN_QUEUE \
+			and front.global_position.distance_to(slot_position(0)) < 1.6:
+			_npc_queue.pop_front()
+			_npc_rider = front
+			_occupied = true
+			_occupant = front
+			_occupy_t = 0.0
+			front.begin_ride()
+			if _player_waiting:
+				_player_ahead = maxi(_player_ahead - 1, 0)
+
+func _start_ride_player() -> void:
+	var p := _player_ref
+	_player_no_wait = _player_wait < 4.0
+	_player_waiting = false
+	_player_ref = null
+	_occupied = true
+	_occupant = p
+	_occupy_t = 0.0
+	_occ_player_swam = false
+	EventBus.queue_update.emit(slide_id, 0, false)
+	_start_ride(p)
+
+func _start_ride(player: PlayerController) -> void:
+	_rider = player
+	_speed = base_speed
+	_follow.progress = 0.0
+	_mount.monitoring = false
+	player.mount_rail(self)
 
 func _drive_player(delta: float) -> void:
 	var fwd := -_follow.global_transform.basis.z
@@ -324,24 +382,9 @@ func _drive_npc(delta: float) -> void:
 		_npc_rider = null
 		done.reached_pool(ride_point(1.0))
 
-func _dispatch() -> void:
-	if _queue.is_empty():
-		return
-	var front = _queue[0]
-	if front is PlayerController:
-		if front == _player_in_queue:
-			_queue.pop_front()
-			_start_ride(front)
-	elif front is NPCAgent:
-		if front.state == NPCAgent.St.IN_QUEUE \
-			and front.global_position.distance_to(slot_position(0)) < 1.3:
-			_queue.pop_front()
-			_npc_rider = front
-			front.begin_ride()
-
 func _update_light() -> void:
-	var busy := _rider != null or _npc_rider != null
-	var player_next := (not busy) and not _queue.is_empty() and _queue[0] is PlayerController
+	var player_next := _player_waiting and _player_ahead <= 0 and not _occupied \
+		and _rider == null and _npc_rider == null
 	if _light_green:
 		_light_green.visible = player_next
 	if _light_red:
