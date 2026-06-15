@@ -23,6 +23,8 @@ class_name PlayerController
 @export var swim_accel: float = 6.0
 
 var swimming: bool = false
+var riding: bool = false        # едем с горки — движением управляет SlideRail
+var _rail: Node = null
 
 @onready var _head: Node3D = $Head
 @onready var _cam := $Head/Camera3D as CameraComfort
@@ -31,6 +33,7 @@ var _was_on_floor: bool = true
 var _water_count: int = 0   # сколько водных зон сейчас перекрываем
 
 func _ready() -> void:
+	add_to_group("player")
 	_ensure_inputs()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	if has_node("WaterSensor"):
@@ -40,9 +43,15 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * mouse_sensitivity)
-		_head.rotate_x(-event.relative.y * mouse_sensitivity)
-		_head.rotation.x = clamp(_head.rotation.x,
+		var dx := -event.relative.x * mouse_sensitivity
+		var dy := -event.relative.y * mouse_sensitivity
+		if riding:
+			# на спуске тело ведёт рейка — крутим только голову (свободный обзор)
+			_head.rotation.y = clamp(_head.rotation.y + dx,
+				deg_to_rad(-120.0), deg_to_rad(120.0))
+		else:
+			rotate_y(dx)
+		_head.rotation.x = clamp(_head.rotation.x + dy,
 			deg_to_rad(pitch_min_deg), deg_to_rad(pitch_max_deg))
 	if event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE \
@@ -50,6 +59,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			else Input.MOUSE_MODE_CAPTURED
 
 func _physics_process(delta: float) -> void:
+	if riding:
+		return          # позицию задаёт SlideRail через ride_to()
 	if swimming:
 		_swim(delta)
 	else:
@@ -100,6 +111,29 @@ func _swim(delta: float) -> void:
 	move_and_slide()
 	_cam.update_motion(velocity.length() / swim_speed, false, delta, false)
 	_was_on_floor = false
+
+# --- Катание с горки (управляется SlideRail). ---
+func mount_rail(rail: Node) -> void:
+	riding = true
+	_rail = rail
+	swimming = false
+	velocity = Vector3.ZERO
+
+# Рейка вызывает каждый кадр: ставит тело на точку сплайна + кормит comfort скоростью.
+func ride_to(t: Transform3D, speed_ratio: float, delta: float) -> void:
+	global_transform = t
+	_cam.update_motion(speed_ratio, false, delta, true)
+
+func dismount(at: Transform3D) -> void:
+	riding = false
+	_rail = null
+	global_position = at.origin + Vector3.UP * 0.5
+	# выпрямляем тело по направлению съезда (только горизонталь), голову — прямо
+	var flat := Vector3(-at.basis.z.x, 0.0, -at.basis.z.z)
+	if flat.length() > 0.01:
+		look_at(global_position + flat, Vector3.UP)
+	_head.rotation.y = 0.0
+	velocity = Vector3.ZERO
 
 func _on_water_entered(area: Area3D) -> void:
 	if area.is_in_group("water"):
