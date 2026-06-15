@@ -24,8 +24,13 @@ func _ready() -> void:
 	EventBus.toast.connect(_on_toast)
 	EventBus.queue_update.connect(_on_queue)
 
-func _on_queue(slide_id: String, seconds_left: float, active: bool) -> void:
-	_queue_text = "В очереди (%s): %.0f с — отойди, чтобы выйти" % [slide_id, seconds_left] if active else ""
+func _on_queue(_slide_id: String, ahead: float, active: bool) -> void:
+	if not active:
+		_queue_text = ""
+	elif int(ahead) <= 0:
+		_queue_text = "Вы следующий — заходите!"
+	else:
+		_queue_text = "В очереди: впереди %d" % int(ahead)
 
 func _process(delta: float) -> void:
 	_time.text = "%s   (%s)" % [Clock.game_time_string(), _phase_ru(Clock.phase())]
