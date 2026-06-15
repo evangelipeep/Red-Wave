@@ -151,9 +151,9 @@ func _build_pool() -> void:
 	# Чаша-яма (под неё в TestPlayground вырезано отверстие в полу).
 	var end := _path.curve.get_point_position(_path.curve.point_count - 1)
 	var center := end + Vector3(0, 0, -3)
-	var floor_y := -2.0
+	var floor_y := -6.0
 	var surface_y := -0.1
-	var radius := 4.0
+	var radius := 4.5
 
 	# Дно чаши (физическое) — страховка, если в мире нет своего пола.
 	var basin := CSGCylinder3D.new()

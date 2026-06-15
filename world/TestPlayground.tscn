@@ -27,13 +27,13 @@ shadow_enabled = true
 use_collision = true
 
 [node name="Floor" type="CSGBox3D" parent="Ground"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, 0)
-size = Vector3(80, 4, 80)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -7, 0)
+size = Vector3(80, 14, 80)
 
 [node name="Pit" type="CSGBox3D" parent="Ground"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, -24)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, -24)
 operation = 2
-size = Vector3(9, 2, 9)
+size = Vector3(11, 8, 11)
 
 [node name="SlideRail" parent="." instance=ExtResource("2")]
 
