@@ -123,34 +123,70 @@ func _build_visuals() -> void:
 	tube.path_rotation = CSGPolygon3D.PATH_ROTATION_PATH_FOLLOW
 	tube.path_interval = 1.0
 	tube.smooth_faces = true
+	tube.use_collision = true                      # горка физическая — сквозь не пройти
 	add_child(tube)
 	tube.path_node = tube.get_path_to(_path)
-	tube.material = _make_material(Color(0.4, 0.7, 1.0, 0.55), true)
+	tube.material = _make_material(Color(0.4, 0.7, 1.0, 0.45), true)
+
+	# Текущая вода по жёлобу (красная, с движением — это же аквапарк).
+	var flow := CSGPolygon3D.new()
+	flow.name = "SlideWater"
+	flow.mode = CSGPolygon3D.MODE_PATH
+	flow.polygon = PackedVector2Array([
+		Vector2(-0.95, -0.32), Vector2(-0.95, -0.22),
+		Vector2(0.95, -0.22), Vector2(0.95, -0.32),
+	])
+	flow.path_rotation = CSGPolygon3D.PATH_ROTATION_PATH_FOLLOW
+	flow.path_interval = 0.5
+	flow.smooth_faces = true
+	add_child(flow)
+	flow.path_node = flow.get_path_to(_path)
+	var sh := load("res://systems/slide/slide_water.gdshader") as Shader
+	if sh:
+		var sm := ShaderMaterial.new()
+		sm.shader = sh
+		flow.material = sm
 
 func _build_pool() -> void:
+	# Чаша-яма (под неё в TestPlayground вырезано отверстие в полу).
 	var end := _path.curve.get_point_position(_path.curve.point_count - 1)
-	var center := end + Vector3(0, -0.1, -2)
-	# Красная вода (полупрозрачный диск).
+	var center := end + Vector3(0, 0, -3)
+	var floor_y := -2.0
+	var surface_y := -0.1
+	var radius := 4.0
+
+	# Дно чаши (физическое) — страховка, если в мире нет своего пола.
+	var basin := CSGCylinder3D.new()
+	basin.name = "BasinFloor"
+	basin.radius = radius
+	basin.height = 0.4
+	basin.use_collision = true
+	basin.position = Vector3(center.x, floor_y - 0.2, center.z)
+	add_child(basin)
+
+	# Красная вода.
 	var water := MeshInstance3D.new()
 	water.name = "Water"
-	var disc := CylinderMesh.new()
-	disc.top_radius = 5.0
-	disc.bottom_radius = 5.0
-	disc.height = 0.3
-	water.mesh = disc
-	water.position = center
-	water.material_override = _make_material(Color(0.85, 0.05, 0.05, 0.7), true)
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = radius
+	cyl.bottom_radius = radius
+	cyl.height = surface_y - floor_y
+	water.mesh = cyl
+	water.position = Vector3(center.x, (surface_y + floor_y) * 0.5, center.z)
+	water.material_override = _make_material(Color(0.8, 0.05, 0.05, 0.7), true)
 	add_child(water)
-	# Зона воды для плавания (группа "water" — активирует swim в PlayerController).
+
+	# Зона воды (группа "water" → активирует плавание; surface_y → buoyancy).
 	var area := Area3D.new()
 	area.name = "Pool"
 	area.add_to_group("water")
+	area.set_meta("surface_y", surface_y)
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(10, 2.0, 10)
+	box.size = Vector3(radius * 2, surface_y - floor_y + 0.6, radius * 2)
 	cs.shape = box
 	area.add_child(cs)
-	area.position = center + Vector3(0, 0.8, 0)
+	area.position = Vector3(center.x, (surface_y + floor_y) * 0.5, center.z)
 	add_child(area)
 
 func _on_mount_body_entered(body: Node3D) -> void:

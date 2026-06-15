@@ -21,8 +21,11 @@ class_name PlayerController
 @export var ground_accel: float = 12.0
 @export var air_accel: float = 3.0
 @export var swim_accel: float = 6.0
+@export var buoyancy: float = 16.0          # сила выталкивания к поверхности
+@export var water_exit_speed: float = 9.0   # рывок при выпрыгивании из воды
 
 var swimming: bool = false
+var _water_surface_y: float = 0.0           # уровень поверхности текущей воды
 var riding: bool = false        # едем с горки — движением управляет SlideRail
 var _rail: Node = null
 
@@ -100,15 +103,38 @@ func _walk(delta: float) -> void:
 
 func _swim(delta: float) -> void:
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	# Плывём туда, куда смотрим (направление от камеры, с учётом наклона).
-	var dir := _cam.global_transform.basis * Vector3(input.x, 0.0, input.y)
-	if Input.is_action_pressed("jump"):
-		dir.y += 1.0
-	if Input.is_action_pressed("swim_down"):
-		dir.y -= 1.0
-	dir = dir.normalized()
+	# Глубина «головы»: >0 — голова под водой, <0 — над поверхностью.
+	var depth := _water_surface_y - (global_position.y + 0.9)
+	var near_surface := depth < 0.5
 
-	velocity = velocity.lerp(dir * swim_speed, clamp(swim_accel * delta, 0.0, 1.0))
+	# У поверхности Space = ВЫПРЫГНУТЬ из воды (рывок вверх + вперёд по взгляду).
+	if near_surface and Input.is_action_just_pressed("jump"):
+		var look := _cam.global_transform.basis * Vector3(input.x, 0.0, input.y)
+		var lh := Vector3(look.x, 0.0, look.z)
+		if lh.length() > 0.01:
+			lh = lh.normalized()
+		velocity = Vector3(lh.x * swim_speed * 1.5, water_exit_speed, lh.z * swim_speed * 1.5)
+		move_and_slide()
+		_cam.update_motion(1.0, false, delta, true)
+		return
+
+	# Плаваем туда, куда смотрим (горизонталь), вертикаль — выталкивание + гребки.
+	var dir := _cam.global_transform.basis * Vector3(input.x, 0.0, input.y)
+	var horiz := Vector3(dir.x, 0.0, dir.z)
+	if horiz.length() > 1.0:
+		horiz = horiz.normalized()
+
+	var vy := velocity.y
+	vy += (clampf(depth, -0.6, 1.5) * buoyancy - _gravity * 0.18) * delta
+	vy = move_toward(vy, 0.0, swim_speed * delta)   # сопротивление воды
+	if Input.is_action_pressed("jump"):
+		vy += buoyancy * 0.15                        # грести вверх (глубже поверхности)
+	if Input.is_action_pressed("swim_down"):
+		vy -= swim_speed
+
+	velocity.x = lerp(velocity.x, horiz.x * swim_speed, clampf(swim_accel * delta, 0.0, 1.0))
+	velocity.z = lerp(velocity.z, horiz.z * swim_speed, clampf(swim_accel * delta, 0.0, 1.0))
+	velocity.y = vy
 	move_and_slide()
 	_cam.update_motion(velocity.length() / swim_speed, false, delta, false)
 	_was_on_floor = false
@@ -140,6 +166,7 @@ func _on_water_entered(area: Area3D) -> void:
 	if area.is_in_group("water"):
 		_water_count += 1
 		swimming = true
+		_water_surface_y = area.get_meta("surface_y", global_position.y)
 
 func _on_water_exited(area: Area3D) -> void:
 	if area.is_in_group("water"):
