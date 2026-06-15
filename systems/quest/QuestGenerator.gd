@@ -104,8 +104,8 @@ func _compatible(atom: Dictionary, bundle: Array) -> bool:
 		if b["axis"] == atom["axis"]:
 			return false                      # дедуп оси
 	var fixed_cnt := (1 if atom["fixed"] else 0)
-	var coins := atom["coin"]
-	var tsum := atom["t"]
+	var coins: float = atom["coin"]
+	var tsum: float = atom["t"]
 	for b in bundle:
 		fixed_cnt += (1 if b["fixed"] else 0)
 		coins += b["coin"]
