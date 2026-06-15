@@ -20,7 +20,7 @@ var _queue_text: String = ""
 
 func _ready() -> void:
 	_toast.text = ""
-	_hint.text = "WASD · Shift бег · Space прыжок · E снек · Q блюдо · T туалет · M карта"
+	_hint.text = "WASD · Shift бег · Space прыжок · E/Q еда · T туалет · M карта · СКМ пинг"
 	EventBus.toast.connect(_on_toast)
 	EventBus.queue_update.connect(_on_queue)
 

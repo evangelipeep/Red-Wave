@@ -42,6 +42,13 @@ var _was_on_floor: bool = true
 var _water_count: int = 0   # сколько водных зон сейчас перекрываем
 
 var _active: bool = false   # игрок управляем только во время забега (не на планировании)
+var _ping_cd: float = 0.0   # кулдаун пинга
+
+# Палитра цветов игроков для пингов/меток (MARKER_COLORS = 4).
+const PING_COLORS := [
+	Color(0.3, 0.6, 1.0), Color(1.0, 0.4, 0.3),
+	Color(0.4, 1.0, 0.5), Color(1.0, 0.85, 0.3),
+]
 
 func _ready() -> void:
 	add_to_group("player")
@@ -91,8 +98,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not WeightSystem.toilet():
 			EventBus.toast.emit("Туалет недоступен — раз в 3 часа (ещё %.1f ч)"
 				% WeightSystem.toilet_ready_in_hours())
+	elif event.is_action_pressed("ping"):
+		_do_ping()
 
 func _physics_process(delta: float) -> void:
+	if _ping_cd > 0.0:
+		_ping_cd -= delta
 	if not _active:
 		return          # планирование/пауза — игрок заморожен
 	if riding:
@@ -291,6 +302,89 @@ func _ensure_inputs() -> void:
 	_add_key("eat_meal", KEY_Q)
 	_add_key("toilet", KEY_T)
 	_add_key("map", KEY_M)
+	_add_mouse("ping", MOUSE_BUTTON_MIDDLE)
+
+func _add_mouse(action: String, button: MouseButton) -> void:
+	if not InputMap.has_action(action):
+		InputMap.add_action(action)
+	if InputMap.action_get_events(action).is_empty():
+		var ev := InputEventMouseButton.new()
+		ev.button_index = button
+		InputMap.action_add_event(action, ev)
+
+# --- Контекстный пинг (СКМ): метка в мире цветом игрока (DESIGN FROZEN). ---
+func _do_ping() -> void:
+	if _ping_cd > 0.0:
+		return
+	var from := _cam.global_position
+	var to := from - _cam.global_transform.basis.z * 60.0
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	q.exclude = [get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return
+	_ping_cd = GameConstants.PING_CD
+	var pos: Vector3 = hit["position"]
+	var ctx := _classify_ping(pos)
+	_spawn_marker(pos, ctx)
+	EventBus.ping_made.emit(Net.local_id(), pos, ctx)
+
+func _classify_ping(pos: Vector3) -> String:
+	var nearest := _nearest_slide(pos)
+	if nearest != null and pos.distance_to(nearest.global_position) < 12.0:
+		return "к горке %s" % nearest.slide_id
+	var r := Vector2(pos.x, pos.z).length()
+	if r > 16.0 and r < 27.0:
+		return "встречаемся на реке"
+	return "сюда"
+
+func _nearest_slide(pos: Vector3) -> SlideRail:
+	var best: SlideRail = null
+	var bd := 1e9
+	for s in get_tree().get_nodes_in_group("slide"):
+		var sr := s as SlideRail
+		if sr == null:
+			continue
+		var d := pos.distance_to(sr.global_position)
+		if d < bd:
+			bd = d
+			best = sr
+	return best
+
+func _spawn_marker(pos: Vector3, ctx: String) -> void:
+	var host := get_tree().current_scene
+	if host == null:
+		return
+	var col: Color = PING_COLORS[(Net.local_id() - 1) % PING_COLORS.size()]
+	var root := Node3D.new()
+	host.add_child(root)
+	root.global_position = pos
+
+	var beam := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.12
+	cyl.bottom_radius = 0.12
+	cyl.height = 3.0
+	beam.mesh = cyl
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.emission_enabled = true
+	mat.emission = col
+	beam.material_override = mat
+	beam.position = Vector3(0, 1.5, 0)
+	root.add_child(beam)
+
+	var label := Label3D.new()
+	label.text = ctx
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 40
+	label.pixel_size = 0.01
+	label.outline_size = 8
+	label.modulate = col
+	label.position = Vector3(0, 3.3, 0)
+	root.add_child(label)
+
+	get_tree().create_timer(GameConstants.PING_LIFE).timeout.connect(root.queue_free)
 
 func _add_key(action: String, keycode: Key) -> void:
 	if not InputMap.has_action(action):
