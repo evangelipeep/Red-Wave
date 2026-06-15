@@ -17,4 +17,6 @@ signal zone_closed(player_id: int, zone: String)            # первопрох
 signal quest_progress(player_id: int, quest_id: String, done: bool)
 signal ping_made(player_id: int, world_pos: Vector3, context: String)
 signal toast(message: String)                               # всплывающее уведомление в HUD
+signal food_eaten(zone: String)                             # поел в зоне (для квеста «еда в 3 зонах»)
+signal score_changed(player_id: int, score: int)
 @warning_ignore_restore("unused_signal")

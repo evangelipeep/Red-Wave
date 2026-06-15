@@ -7,6 +7,7 @@ extends CanvasLayer
 @onready var _cal: Label = $VBox/Calories
 @onready var _weight: Label = $VBox/Weight
 @onready var _coins: Label = $VBox/Coins
+@onready var _score: Label = $VBox/Score
 @onready var _dizzy: Label = $VBox/Dizzy
 @onready var _toilet: Label = $VBox/Toilet
 @onready var _zone: Label = $VBox/Zone
@@ -27,6 +28,7 @@ func _process(delta: float) -> void:
 	_weight.text = "Вес (отладка): %.1f кг   к −1кг %.0f%%%s" % [
 		WeightSystem.kg, WeightSystem.burn_progress() * 100.0, lock]
 	_coins.text = "Монеты: %d" % RunState.coins
+	_score.text = "Очки: %d" % RunState.score
 	_dizzy.text = "Голова: %d/%d" % [RunState.dizziness, GameConstants.DIZZY_MAX]
 	if WeightSystem.can_toilet():
 		_toilet.text = "Туалет: готов"

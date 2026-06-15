@@ -23,6 +23,9 @@ text = "Вес (отладка): 80.0 кг"
 [node name="Coins" type="Label" parent="VBox"]
 text = "Монеты: 10"
 
+[node name="Score" type="Label" parent="VBox"]
+text = "Очки: 0"
+
 [node name="Dizzy" type="Label" parent="VBox"]
 text = "Голова: 0/5"
 

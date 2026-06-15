@@ -26,9 +26,12 @@ func _format() -> String:
 		WeightSystem.kg, WeightSystem.weight_min, WeightSystem.weight_max]
 	s += "   Голова (пик за день): %d/%d\n" % [RunState.dizziness_peak, GameConstants.DIZZY_MAX]
 	s += "   Монет осталось: %d\n\n" % RunState.coins
-	s += "Главный квест дня:\n"
-	for a in RunState.main_quest:
-		s += "   • %s\n" % str(a.get("name", "?"))
-	s += "   (проверка выполнения и очки — фаза 2)\n\n"
+	var status := "ВЫПОЛНЕН ✓" if QuestTracker.quest_complete() else "не выполнен"
+	s += "Главный квест: %s\n" % status
+	for i in RunState.main_quest.size():
+		var a: Dictionary = RunState.main_quest[i]
+		var mark := "✓" if QuestTracker.is_done(i) else "✗"
+		s += "   %s %s\n" % [mark, str(a.get("name", "?"))]
+	s += "\nОЧКИ ЗА ДЕНЬ: %d\n\n" % RunState.score
 	s += "Enter — заново"
 	return s

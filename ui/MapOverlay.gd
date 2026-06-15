@@ -21,8 +21,10 @@ func _format() -> String:
 	var s := "Время: %s\n" % Clock.game_time_string()
 	s += "Горка дня (Гул): %s\n\n" % Hype.day_slide
 	s += "Главный квест:\n"
-	for a in RunState.main_quest:
-		s += "   • %s\n" % str(a.get("name", "?"))
-	s += "\nПрокатились: %d горок\n" % RunState.rides_total
+	for i in RunState.main_quest.size():
+		var a: Dictionary = RunState.main_quest[i]
+		var mark := "✓" if QuestTracker.is_done(i) else "•"
+		s += "   %s %s\n" % [mark, str(a.get("name", "?"))]
+	s += "\nОчки: %d   Прокатились: %d горок\n" % [RunState.score, RunState.rides_total]
 	s += "Сожжено: %.0f ккал" % WeightSystem.calories_burned
 	return s

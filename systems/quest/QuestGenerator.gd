@@ -23,7 +23,7 @@ func _build_atoms() -> Array:
 	for n in [1, 2]:
 		if extreme.size() >= n:
 			A.append({"name":"Экстрим×%d"%n, "ep":3.0*n, "t":_sum_smallest(extreme, n),
-				"fixed":false, "coin":0, "axis":"extreme"})
+				"fixed":false, "coin":0, "axis":"extreme", "n":n})
 	# RIDE_SENSATION(s,n)
 	var senses := ["padenie","mrak","skolzhenie","nevesomost","pogruzhenie","kruzhenie"]
 	for s in senses:
@@ -34,19 +34,19 @@ func _build_atoms() -> Array:
 				for id in lst: zones[Slides.SLIDES[id]["zone"]] = true
 				var bonus := 1.0 if zones.size() >= 3 else 0.0
 				A.append({"name":"Ощущение %s×%d"%[s,n], "ep":1.5*n+bonus, "t":_sum_smallest(lst,n),
-					"fixed":false, "coin":0, "axis":"sens"})
+					"fixed":false, "coin":0, "axis":"sens", "n":n, "sensation":s})
 	# RIDE_TEMP(temp,n)
 	for tname in ["ice", "warm"]:
 		var lst := Slides.with_temp(tname)
 		for n in [2, 3]:
 			if lst.size() >= n:
 				A.append({"name":"Темп %s×%d"%[tname,n], "ep":1.5*n, "t":_sum_smallest(lst,n),
-					"fixed":false, "coin":0, "axis":"temp"})
+					"fixed":false, "coin":0, "axis":"temp", "n":n, "temp":tname})
 	# RIDE_GUL_BELOW(n)
 	for n in [2, 3]:
 		if low.size() >= n:
 			A.append({"name":"Гул<50×%d"%n, "ep":1.3*n, "t":_sum_smallest(low,n),
-				"fixed":false, "coin":0, "axis":"gul"})
+				"fixed":false, "coin":0, "axis":"gul", "n":n})
 	# ONE_PER_ZONE
 	var tz := 0.0
 	for z in Slides.ZONES:
@@ -58,14 +58,14 @@ func _build_atoms() -> Array:
 	for z in Slides.ZONES:
 		var t := 0.0
 		for id in Slides.in_zone(z): t += _ride_time(id)
-		A.append({"name":"Закрой зону %s"%z, "ep":7.0, "t":t, "fixed":false, "coin":0, "axis":"closezone"})
+		A.append({"name":"Закрой зону %s"%z, "ep":7.0, "t":t, "fixed":false, "coin":0, "axis":"closezone", "zone":z})
 	# DIFFERENT_SENSATIONS(k)
 	for k in [3, 4]:
-		A.append({"name":"%d разных ощущений"%k, "ep":1.5*k, "t":k*90.0, "fixed":false, "coin":0, "axis":"diffsens"})
+		A.append({"name":"%d разных ощущений"%k, "ep":1.5*k, "t":k*90.0, "fixed":false, "coin":0, "axis":"diffsens", "n":k})
 	# RIDE_CALM(n)
 	for n in [1, 2]:
 		if calm.size() >= n:
-			A.append({"name":"Спокойные×%d"%n, "ep":3.0*n, "t":n*100.0, "fixed":false, "coin":0, "axis":"calm"})
+			A.append({"name":"Спокойные×%d"%n, "ep":3.0*n, "t":n*100.0, "fixed":false, "coin":0, "axis":"calm", "n":n})
 	# ATTEND_SHOWS(k)  (fixed_time)
 	for k in [1, 2, 3]:
 		A.append({"name":"Театры×%d"%k, "ep":3.0*k, "t":k*110.0, "fixed":true, "coin":0, "axis":"shows"})
@@ -82,13 +82,13 @@ func _build_atoms() -> Array:
 	A.append({"name":"Голов.5→0 до 19:00", "ep":3.0, "t":150.0, "fixed":false, "coin":0, "axis":"dizzy"})
 	# RACE_WIN(n)
 	for n in [1, 2]:
-		A.append({"name":"Победа в Рое×%d"%n, "ep":3.0*n, "t":n*90.0, "fixed":false, "coin":0, "axis":"race"})
+		A.append({"name":"Победа в Рое×%d"%n, "ep":3.0*n, "t":n*90.0, "fixed":false, "coin":0, "axis":"race", "n":n})
 	# QUEUE_SKIP(n)
 	for n in [1, 2]:
-		A.append({"name":"Без очереди×%d"%n, "ep":2.5*n, "t":n*30.0, "fixed":false, "coin":0, "axis":"skip"})
+		A.append({"name":"Без очереди×%d"%n, "ep":2.5*n, "t":n*30.0, "fixed":false, "coin":0, "axis":"skip", "n":n})
 	# CAPILLYAR_LAPS(n)
 	for n in [2, 3]:
-		A.append({"name":"Круги по реке×%d"%n, "ep":2.0*n, "t":n*90.0, "fixed":false, "coin":0, "axis":"laps"})
+		A.append({"name":"Круги по реке×%d"%n, "ep":2.0*n, "t":n*90.0, "fixed":false, "coin":0, "axis":"laps", "n":n})
 	return A
 
 func _sum_smallest(ids: Array, n: int) -> float:
