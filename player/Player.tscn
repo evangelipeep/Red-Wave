@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3 uid="uid://drwplayer0001"]
+
+[ext_resource type="Script" path="res://player/PlayerController.gd" id="1"]
+[ext_resource type="Script" path="res://player/CameraComfort.gd" id="2"]
+
+[sub_resource type="CapsuleShape3D" id="cap_body"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleShape3D" id="cap_water"]
+radius = 0.45
+height = 1.9
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1")
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+shape = SubResource("cap_body")
+
+[node name="Head" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Head"]
+script = ExtResource("2")
+
+[node name="WaterSensor" type="Area3D" parent="."]
+
+[node name="WaterShape" type="CollisionShape3D" parent="WaterSensor"]
+shape = SubResource("cap_water")
