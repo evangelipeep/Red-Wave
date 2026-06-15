@@ -26,6 +26,8 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 
 var _queue: Array = []                       # очередь: NPCAgent или PlayerController
 var _player_in_queue: PlayerController = null
 var _was_player_next: bool = false
+var _player_wait: float = 0.0                # сколько игрок ждал в очереди
+var _player_no_wait: bool = false            # прокатился почти без ожидания
 
 # Геометрия для NPC-запросов.
 var _top_local: Vector3
@@ -271,6 +273,7 @@ func _on_mount_body_entered(body: Node3D) -> void:
 		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
 		return
 	_player_in_queue = body
+	_player_wait = 0.0
 	join_queue(body)
 
 func _on_mount_body_exited(body: Node3D) -> void:
@@ -281,6 +284,7 @@ func _on_mount_body_exited(body: Node3D) -> void:
 
 func _start_ride(player: PlayerController) -> void:
 	_rider = player
+	_player_no_wait = _player_wait < 4.0   # почти не стоял в очереди
 	_player_in_queue = null
 	_speed = base_speed
 	_follow.progress = 0.0
@@ -297,6 +301,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_dispatch()
 	if _player_in_queue != null:
+		_player_wait += delta
 		EventBus.queue_update.emit(slide_id, queue_index(_player_in_queue), true)
 
 func _drive_player(delta: float) -> void:
@@ -352,6 +357,10 @@ func _finish() -> void:
 	_speed = 0.0
 	rider.dismount(_follow.global_transform, exit_vel)
 	EventBus.slide_completed.emit(Net.local_id(), slide_id)
+	if _player_no_wait:
+		_player_no_wait = false
+		RunState.add_score(GameConstants.NO_LONG_QUEUE_BONUS)
+		EventBus.toast.emit("Без очереди! +%d" % GameConstants.NO_LONG_QUEUE_BONUS)
 	await get_tree().create_timer(0.8).timeout
 	if is_instance_valid(_mount):
 		_mount.monitoring = true

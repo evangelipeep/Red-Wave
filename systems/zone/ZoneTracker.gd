@@ -13,6 +13,7 @@ func _ready() -> void:
 func _on_enter(body: Node3D) -> void:
 	if body is PlayerController:
 		RunState.current_zone = zone_id
+		RunState.visit_zone(zone_id)
 
 func _on_exit(body: Node3D) -> void:
 	if body is PlayerController and RunState.current_zone == zone_id:

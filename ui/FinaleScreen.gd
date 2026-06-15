@@ -14,7 +14,10 @@ func _on_day_finished() -> void:
 	_body.text = _format()
 
 func _process(_delta: float) -> void:
-	if visible and Input.is_action_just_pressed("ui_accept"):
+	if not visible:
+		return
+	_body.text = _format()   # подхватываем поздние начисления (Баллада, доплата квеста)
+	if Input.is_action_just_pressed("ui_accept"):
 		get_tree().reload_current_scene()
 
 func _format() -> String:

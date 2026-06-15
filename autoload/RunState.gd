@@ -11,6 +11,8 @@ var main_quest: Array = []           # бандл атомов главного 
 var rides_total: int = 0             # сколько горок проехал (прокси-прогресс, фаза 1)
 var dizziness_peak: int = 0          # пик головокружения за день (для финала)
 var score: int = 0                   # очки за день
+var markers: Array[Vector3] = []     # приватные метки игрока (карта M)
+var _zones_visited: Dictionary = {}  # для бонуса «первопроходец зоны»
 var _dizzy_decay_accum: float = 0.0
 
 const DIZZY_DECAY_EVERY := 6.0   # сек на −1 головокружения
@@ -25,12 +27,40 @@ func reset() -> void:
 	rides_total = 0
 	dizziness_peak = 0
 	score = 0
+	markers.clear()
+	_zones_visited.clear()
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 	EventBus.score_changed.emit(Net.local_id(), score)
 
 func add_score(delta: int) -> void:
 	score += delta
 	EventBus.score_changed.emit(Net.local_id(), score)
+
+# --- Приватные метки (карта M). ---
+func add_marker(pos: Vector3) -> void:
+	pos.y = 0.0
+	markers.append(pos)
+	if markers.size() > 6:
+		markers.pop_front()
+
+func remove_marker_near(pos: Vector3) -> void:
+	var best_i := -1
+	var best_d := 8.0
+	for i in markers.size():
+		var d := Vector2(markers[i].x - pos.x, markers[i].z - pos.z).length()
+		if d < best_d:
+			best_d = d
+			best_i = i
+	if best_i >= 0:
+		markers.remove_at(best_i)
+
+# Первый визит в зону за день → бонус «первопроходец».
+func visit_zone(zone: String) -> void:
+	if zone == "" or _zones_visited.has(zone):
+		return
+	_zones_visited[zone] = true
+	add_score(GameConstants.ZONE_FIRST)
+	EventBus.toast.emit("Первопроходец зоны! +%d очков" % GameConstants.ZONE_FIRST)
 
 func _process(delta: float) -> void:
 	if dizziness <= 0:
