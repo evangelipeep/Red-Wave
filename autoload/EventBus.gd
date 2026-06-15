@@ -20,4 +20,5 @@ signal toast(message: String)                               # всплывающ
 signal food_eaten(zone: String)                             # поел в зоне (для квеста «еда в 3 зонах»)
 signal score_changed(player_id: int, score: int)
 signal queue_update(slide_id: String, seconds_left: float, active: bool)   # очередь на горке
+signal map_opened(open: bool)                               # открыта/закрыта карта M (без паузы)
 @warning_ignore_restore("unused_signal")

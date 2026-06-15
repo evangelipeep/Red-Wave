@@ -89,6 +89,45 @@ func _reevaluate(can_pay: bool) -> void:
 		RunState.add_score(GameConstants.MAIN_PAYOUT)
 		EventBus.toast.emit("Главный квест выполнен! +%d очков" % GameConstants.MAIN_PAYOUT)
 
+# Прогресс атома (текущее, нужно) — для карточек «2/5».
+func progress(i: int) -> Vector2i:
+	if i < 0 or i >= RunState.main_quest.size():
+		return Vector2i(0, 1)
+	var a: Dictionary = RunState.main_quest[i]
+	var axis := str(a.get("axis", ""))
+	var n := int(a.get("n", 1))
+	match axis:
+		"extreme":
+			return Vector2i(mini(_count(func(id): return Slides.SLIDES[id].get("extreme", false)), n), n)
+		"calm":
+			return Vector2i(mini(_count(func(id): return Slides.SLIDES[id].get("calm", false)), n), n)
+		"sens":
+			var s := str(a.get("sensation", ""))
+			return Vector2i(mini(_count(func(id): return Slides.SLIDES[id].get("sensation", "") == s), n), n)
+		"temp":
+			var t := str(a.get("temp", ""))
+			return Vector2i(mini(_count(func(id): return Slides.SLIDES[id].get("temp", "") == t), n), n)
+		"gul":
+			return Vector2i(mini(_count(func(id): return int(Hype.gul.get(id, 50)) < 50), n), n)
+		"perzone":
+			return Vector2i(_zones_ridden(), Slides.ZONES.size())
+		"diffsens":
+			return Vector2i(mini(_distinct_sensations(), n), n)
+		"closezone":
+			var z := str(a.get("zone", ""))
+			return Vector2i(_zone_ridden_count(z), Slides.in_zone(z).size())
+		"food":
+			return Vector2i(mini(_eaten_zones.size(), 3), 3)
+		_:
+			return Vector2i(1 if is_done(i) else 0, 1)
+
+func _zone_ridden_count(zone: String) -> int:
+	var c := 0
+	for id in Slides.in_zone(zone):
+		if _ride_counts.has(id):
+			c += 1
+	return c
+
 func _evaluate(atom: Dictionary) -> bool:
 	var axis := str(atom.get("axis", ""))
 	if axis in AUTO_AXES:

@@ -42,6 +42,7 @@ var _was_on_floor: bool = true
 var _water_count: int = 0   # сколько водных зон сейчас перекрываем
 
 var _active: bool = false   # игрок управляем только во время забега (не на планировании)
+var _map_open: bool = false # открыта карта M — управление заморожено (без паузы мира)
 var _ping_cd: float = 0.0   # кулдаун пинга
 
 # Палитра цветов игроков для пингов/меток (MARKER_COLORS = 4).
@@ -56,6 +57,7 @@ func _ready() -> void:
 	EventBus.run_started.connect(_on_run_started)
 	EventBus.run_planning_started.connect(_on_run_planning)
 	Clock.day_finished.connect(_on_run_planning)   # конец дня — тоже заморозка
+	EventBus.map_opened.connect(_on_map_opened)
 	if has_node("WaterSensor"):
 		var ws: Area3D = $WaterSensor
 		ws.area_entered.connect(_on_water_entered)
@@ -70,8 +72,14 @@ func _on_run_planning() -> void:
 	velocity = Vector3.ZERO
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
+# Карта открыта — стоим на месте (мир продолжает идти), управление заморожено.
+func _on_map_opened(open: bool) -> void:
+	_map_open = open
+	if open:
+		velocity = Vector3.ZERO
+
 func _unhandled_input(event: InputEvent) -> void:
-	if not _active:
+	if not _active or _map_open:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var mm := event as InputEventMouseMotion
@@ -104,8 +112,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if _ping_cd > 0.0:
 		_ping_cd -= delta
-	if not _active:
-		return          # планирование/пауза — игрок заморожен
+	if not _active or _map_open:
+		return          # планирование/карта — игрок заморожен (мир продолжает идти)
 	if riding:
 		return          # позицию задаёт SlideRail через ride_to()
 	if swimming:
