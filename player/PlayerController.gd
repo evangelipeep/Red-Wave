@@ -43,8 +43,9 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var dx := -event.relative.x * mouse_sensitivity
-		var dy := -event.relative.y * mouse_sensitivity
+		var mm := event as InputEventMouseMotion
+		var dx := -mm.relative.x * mouse_sensitivity
+		var dy := -mm.relative.y * mouse_sensitivity
 		if riding:
 			# на спуске тело ведёт рейка — крутим только голову (свободный обзор)
 			_head.rotation.y = clamp(_head.rotation.y + dx,
