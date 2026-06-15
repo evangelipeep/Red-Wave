@@ -23,7 +23,8 @@ class_name PlayerController
 @export var swim_accel: float = 6.0
 @export var swim_rise_speed: float = 3.5     # всплытие/погружение (Space/Ctrl)
 @export var swim_idle_sink: float = 0.8      # лёгкое погружение в покое
-@export var swim_vertical_accel: float = 12.0
+@export var swim_vertical_accel: float = 8.0 # ниже = дольше скользим по инерции под водой
+@export var splash_sound: AudioStream        # звук брызг (назначь .wav/.ogg в инспекторе)
 
 var swimming: bool = false
 var _water_surface_y: float = 0.0           # уровень поверхности текущей воды
@@ -144,7 +145,7 @@ func ride_to(t: Transform3D, speed_ratio: float, delta: float) -> void:
 	global_transform = t
 	_cam.update_motion(speed_ratio, false, delta, true)
 
-func dismount(at: Transform3D) -> void:
+func dismount(at: Transform3D, exit_velocity: Vector3 = Vector3.ZERO) -> void:
 	riding = false
 	_rail = null
 	global_position = at.origin + Vector3.UP * 0.5
@@ -153,19 +154,70 @@ func dismount(at: Transform3D) -> void:
 	if flat.length() > 0.01:
 		look_at(global_position + flat, Vector3.UP)
 	_head.rotation.y = 0.0
-	velocity = Vector3.ZERO
+	velocity = exit_velocity   # сохраняем инерцию спуска — влетаем в воду со скоростью
 
 func _on_water_entered(area: Area3D) -> void:
 	if area.is_in_group("water"):
 		_water_count += 1
 		swimming = true
 		_water_surface_y = area.get_meta("surface_y", global_position.y)
+		# Брызги при входе: мощнее от скорости влёта и веса (тяжелее = сильнее/громче).
+		var entry_speed := velocity.length()
+		if entry_speed > 3.0:
+			var weight_norm := WeightSystem.kg / GameConstants.WEIGHT_START
+			var strength := clampf(entry_speed * 0.18 * weight_norm, 0.4, 4.0)
+			_spawn_splash(strength)
 
 func _on_water_exited(area: Area3D) -> void:
 	if area.is_in_group("water"):
 		_water_count = max(_water_count - 1, 0)
 		if _water_count == 0:
 			swimming = false
+
+# Брызги от входа в воду. strength ~ скорость × вес (0.4..4.0).
+func _spawn_splash(strength: float) -> void:
+	var host := get_tree().current_scene
+	if host == null:
+		return
+	var splash_pos := Vector3(global_position.x, _water_surface_y, global_position.z)
+
+	var p := GPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.9
+	p.amount = clampi(int(16.0 * strength), 8, 140)
+	p.lifetime = 0.9
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 40.0
+	pm.initial_velocity_min = 1.5 * strength
+	pm.initial_velocity_max = 3.5 * strength
+	pm.gravity = Vector3(0, -12.0, 0)
+	pm.scale_min = 0.08
+	pm.scale_max = 0.22
+	pm.color = Color(0.9, 0.15, 0.15)
+	p.process_material = pm
+	var drop := SphereMesh.new()
+	drop.radius = 0.07
+	drop.height = 0.14
+	var dm := StandardMaterial3D.new()
+	dm.albedo_color = Color(0.9, 0.15, 0.15)
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	drop.material = dm
+	p.draw_pass_1 = drop
+	host.add_child(p)
+	p.global_position = splash_pos
+	p.emitting = true
+	get_tree().create_timer(p.lifetime + 0.3).timeout.connect(p.queue_free)
+
+	# Звук (громче с силой удара) — только если назначен ассет.
+	if splash_sound:
+		var a := AudioStreamPlayer3D.new()
+		a.stream = splash_sound
+		a.volume_db = lerpf(-12.0, 6.0, clampf(strength / 4.0, 0.0, 1.0))
+		host.add_child(a)
+		a.global_position = splash_pos
+		a.play()
+		a.finished.connect(a.queue_free)
 
 # --- Регистрация управления (физические клавиши). ---
 # Делаем в коде, чтобы прототип работал без ручной настройки Input Map.

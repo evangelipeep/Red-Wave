@@ -219,9 +219,10 @@ func _physics_process(delta: float) -> void:
 
 func _finish() -> void:
 	var rider := _rider
+	var exit_vel := (-_follow.global_transform.basis.z) * (_speed * WeightSystem.speed_factor())
 	_rider = null
 	_speed = 0.0
-	rider.dismount(_follow.global_transform)
+	rider.dismount(_follow.global_transform, exit_vel)
 	EventBus.slide_completed.emit(Net.local_id(), slide_id)
 	print("[SlideRail] %s — бассейн достигнут" % slide_id)
 	await get_tree().create_timer(1.0).timeout
