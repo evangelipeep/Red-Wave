@@ -3,6 +3,9 @@ extends Node
 ## а издают/слушают здесь. Критично для фазы 3 (сеть): сервер сможет
 ## перехватывать те же сигналы без переписывания систем.
 
+# Сигналы издаются из других классов (Clock, системы), поэтому Godot считает их
+# «неиспользуемыми внутри класса» — для шины событий это норма, глушим предупреждение.
+@warning_ignore_start("unused_signal")
 signal run_started()
 signal run_planning_started()
 signal phase_changed(phase: String)
@@ -13,3 +16,4 @@ signal dizziness_changed(player_id: int, level: int)
 signal zone_closed(player_id: int, zone: String)            # первопроходец (server-auth позже)
 signal quest_progress(player_id: int, quest_id: String, done: bool)
 signal ping_made(player_id: int, world_pos: Vector3, context: String)
+@warning_ignore_restore("unused_signal")

@@ -66,16 +66,17 @@ func _set_phase(p: String) -> void:
 func _check_schedule() -> void:
 	for item in _schedule:
 		var frac: float = item[0]
-		var name: String = item[1]
-		if day_fraction >= frac and not _fired.has(name):
-			_fired[name] = true
-			scheduled_event.emit(name)
+		var ev_name: String = item[1]
+		if day_fraction >= frac and not _fired.has(ev_name):
+			_fired[ev_name] = true
+			scheduled_event.emit(ev_name)
 			if EventBus:
-				EventBus.scheduled_event.emit(name)
+				EventBus.scheduled_event.emit(ev_name)
 
 # Текущее игровое время как строка "ЧЧ:ММ" (09:00–21:00)
 func game_time_string() -> String:
 	var minutes_total := int(day_fraction * 12.0 * 60.0)  # 12 часов дня
+	@warning_ignore("integer_division")
 	var h := 9 + minutes_total / 60
 	var m := minutes_total % 60
 	return "%02d:%02d" % [h, m]
