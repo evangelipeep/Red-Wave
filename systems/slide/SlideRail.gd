@@ -27,6 +27,8 @@ func _ready() -> void:
 	_setup_path()
 	_setup_follow()
 	_setup_mount()
+	_build_visuals()
+	_build_pool()
 	if build_access and build_demo_curve:
 		_build_access_stairs(_path.curve.get_point_position(0))
 
@@ -92,6 +94,64 @@ func _build_access_stairs(top: Vector3) -> void:
 		step.use_collision = true
 		step.position = Vector3(top.x, top.y * f - 0.2, top.z + float(steps - i) * 1.2)
 		add_child(step)
+	# площадка наверху, чтобы было где встать перед стартом
+	var plat := CSGBox3D.new()
+	plat.name = "TopPlatform"
+	plat.size = Vector3(3, 0.4, 2.5)
+	plat.use_collision = true
+	plat.position = Vector3(top.x, top.y - 0.2, top.z + 0.8)
+	add_child(plat)
+
+# --- Видимая геометрия горки и воды ---
+func _make_material(col: Color, transparent: bool) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	if transparent:
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return m
+
+func _build_visuals() -> void:
+	# Жёлоб вдоль сплайна (U-профиль, открыт сверху — видно ездока).
+	var tube := CSGPolygon3D.new()
+	tube.name = "Tube"
+	tube.mode = CSGPolygon3D.MODE_PATH
+	tube.polygon = PackedVector2Array([
+		Vector2(-1.2, 0.6), Vector2(-1.2, -0.6), Vector2(1.2, -0.6), Vector2(1.2, 0.6),
+		Vector2(1.0, 0.6), Vector2(1.0, -0.4), Vector2(-1.0, -0.4), Vector2(-1.0, 0.6),
+	])
+	tube.path_rotation = CSGPolygon3D.PATH_ROTATION_PATH_FOLLOW
+	tube.path_interval = 1.0
+	tube.smooth_faces = true
+	add_child(tube)
+	tube.path_node = tube.get_path_to(_path)
+	tube.material = _make_material(Color(0.4, 0.7, 1.0, 0.55), true)
+
+func _build_pool() -> void:
+	var end := _path.curve.get_point_position(_path.curve.point_count - 1)
+	var center := end + Vector3(0, -0.1, -2)
+	# Красная вода (полупрозрачный диск).
+	var water := MeshInstance3D.new()
+	water.name = "Water"
+	var disc := CylinderMesh.new()
+	disc.top_radius = 5.0
+	disc.bottom_radius = 5.0
+	disc.height = 0.3
+	water.mesh = disc
+	water.position = center
+	water.material_override = _make_material(Color(0.85, 0.05, 0.05, 0.7), true)
+	add_child(water)
+	# Зона воды для плавания (группа "water" — активирует swim в PlayerController).
+	var area := Area3D.new()
+	area.name = "Pool"
+	area.add_to_group("water")
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(10, 2.0, 10)
+	cs.shape = box
+	area.add_child(cs)
+	area.position = center + Vector3(0, 0.8, 0)
+	add_child(area)
 
 func _on_mount_body_entered(body: Node3D) -> void:
 	if _rider != null:
