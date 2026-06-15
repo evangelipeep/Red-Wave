@@ -1,7 +1,10 @@
-[gd_scene load_steps=6 format=3 uid="uid://drwtestpg0001"]
+[gd_scene load_steps=9 format=3 uid="uid://drwtestpg0001"]
 
 [ext_resource type="PackedScene" path="res://player/Player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://systems/slide/SlideRail.tscn" id="2"]
+[ext_resource type="Script" path="res://world/RunBootstrap.gd" id="3"]
+[ext_resource type="Script" path="res://world/Lighting.gd" id="4"]
+[ext_resource type="PackedScene" path="res://ui/HUD.tscn" id="5"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -15,6 +18,7 @@ ambient_light_source = 3
 tonemap_mode = 2
 
 [node name="TestPlayground" type="Node3D"]
+script = ExtResource("3")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("env")
@@ -22,6 +26,8 @@ environment = SubResource("env")
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.5, 0.8660254, 0, -0.8660254, 0.5, 0, 10, 0)
 shadow_enabled = true
+script = ExtResource("4")
+world_env = NodePath("../WorldEnvironment")
 
 [node name="Ground" type="CSGCombiner3D" parent="."]
 use_collision = true
@@ -39,3 +45,5 @@ size = Vector3(11, 8, 11)
 
 [node name="Player" parent="." instance=ExtResource("1")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 12.5)
+
+[node name="HUD" parent="." instance=ExtResource("5")]

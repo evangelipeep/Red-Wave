@@ -192,8 +192,15 @@ func _build_pool() -> void:
 func _on_mount_body_entered(body: Node3D) -> void:
 	if _rider != null:
 		return
-	if body is PlayerController:
-		_start_ride(body)
+	if not (body is PlayerController):
+		return
+	# Лок экстрима по весу (GDD §5): ≥91 кг не пускают.
+	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
+	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
+		print("[SlideRail] %s — экстрим заблокирован: вес %.0f ≥ %.0f кг" % [
+			slide_id, WeightSystem.kg, GameConstants.WEIGHT_LOCK])
+		return
+	_start_ride(body)
 
 func _start_ride(player: PlayerController) -> void:
 	_rider = player

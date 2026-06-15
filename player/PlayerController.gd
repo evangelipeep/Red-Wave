@@ -63,6 +63,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE \
 			if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
 			else Input.MOUSE_MODE_CAPTURED
+	# Еда/туалет (меняют вес → скорость спуска, брызги, лок экстрима).
+	elif event.is_action_pressed("eat_snack"):
+		RunState.try_eat_snack()
+	elif event.is_action_pressed("eat_meal"):
+		RunState.try_eat_meal()
+	elif event.is_action_pressed("toilet"):
+		WeightSystem.toilet()
 
 func _physics_process(delta: float) -> void:
 	if riding:
@@ -230,6 +237,9 @@ func _ensure_inputs() -> void:
 	_add_key("jump", KEY_SPACE)
 	_add_key("sprint", KEY_SHIFT)
 	_add_key("swim_down", KEY_CTRL)
+	_add_key("eat_snack", KEY_E)
+	_add_key("eat_meal", KEY_Q)
+	_add_key("toilet", KEY_T)
 
 func _add_key(action: String, keycode: Key) -> void:
 	if not InputMap.has_action(action):
