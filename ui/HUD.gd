@@ -9,6 +9,7 @@ extends CanvasLayer
 @onready var _coins: Label = $VBox/Coins
 @onready var _dizzy: Label = $VBox/Dizzy
 @onready var _toilet: Label = $VBox/Toilet
+@onready var _zone: Label = $VBox/Zone
 @onready var _hint: Label = $VBox/Hint
 @onready var _toast: Label = $ToastWrap/Toast
 
@@ -31,6 +32,7 @@ func _process(delta: float) -> void:
 		_toilet.text = "Туалет: готов"
 	else:
 		_toilet.text = "Туалет: через %.1f ч" % WeightSystem.toilet_ready_in_hours()
+	_zone.text = "Зона: %s" % _zone_ru(RunState.current_zone)
 
 	if _toast_time > 0.0:
 		_toast_time -= delta
@@ -40,6 +42,13 @@ func _process(delta: float) -> void:
 func _on_toast(message: String) -> void:
 	_toast.text = message
 	_toast_time = 3.0
+
+func _zone_ru(z: String) -> String:
+	match z:
+		"klyk": return "Северный Клык"
+		"delta": return "Дельта"
+		"zero": return "Серый Пояс Зеро"
+		_: return "центр"
 
 func _phase_ru(p: String) -> String:
 	match p:

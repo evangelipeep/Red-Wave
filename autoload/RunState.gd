@@ -6,6 +6,7 @@ extends Node
 
 var coins: int = 0
 var dizziness: int = 0
+var current_zone: String = ""        # в какой зоне игрок ("" = центр/мост)
 var _dizzy_decay_accum: float = 0.0
 
 const DIZZY_DECAY_EVERY := 6.0   # сек на −1 головокружения
@@ -16,6 +17,7 @@ func _ready() -> void:
 func reset() -> void:
 	coins = GameConstants.COINS_START
 	dizziness = 0
+	current_zone = ""
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 
 func _process(delta: float) -> void:

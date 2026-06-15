@@ -24,10 +24,14 @@ class_name PlayerController
 @export var swim_rise_speed: float = 3.5     # всплытие/погружение (Space/Ctrl)
 @export var swim_idle_sink: float = 0.8      # лёгкое погружение в покое
 @export var water_drag: float = 1.5          # сопротивление воды (ниже = дольше скользишь по инерции)
+@export var river_drift: float = 2.5         # сила течения ленивой реки
 @export var splash_sound: AudioStream        # звук брызг (назначь .wav/.ogg в инспекторе)
 
 var swimming: bool = false
 var _water_surface_y: float = 0.0           # уровень поверхности текущей воды
+var _in_river: bool = false                 # в ленивой реке (есть течение)
+var _river_center: Vector3 = Vector3.ZERO
+var _river_count: int = 0
 var riding: bool = false        # едем с горки — движением управляет SlideRail
 var _rail: Node = null
 
@@ -132,6 +136,15 @@ func _swim(delta: float) -> void:
 	velocity.x += horiz.x * swim_speed * water_drag * delta
 	velocity.z += horiz.z * swim_speed * water_drag * delta
 
+	# Течение ленивой реки — тащит по кольцу вокруг центра.
+	if _in_river:
+		var tang := Vector3.UP.cross(global_position - _river_center)
+		tang.y = 0.0
+		if tang.length() > 0.01:
+			tang = tang.normalized()
+			velocity.x += tang.x * river_drift * water_drag * delta
+			velocity.z += tang.z * river_drift * water_drag * delta
+
 	# Вертикаль (как в Minecraft): Space — всплывать, Ctrl — нырять, иначе лёгкое погружение.
 	# Всплыл к поверхности и держишь Space → мягко выходишь (уносишь ≤ swim_rise_speed).
 	if Input.is_action_pressed("jump"):
@@ -186,12 +199,20 @@ func _on_water_entered(area: Area3D) -> void:
 			var weight_norm := WeightSystem.kg / GameConstants.WEIGHT_START
 			var strength := clampf(entry_speed * 0.18 * weight_norm, 0.4, 4.0)
 			_spawn_splash(strength)
+	if area.is_in_group("river"):
+		_river_count += 1
+		_in_river = true
+		_river_center = area.get_meta("river_center", Vector3.ZERO)
 
 func _on_water_exited(area: Area3D) -> void:
 	if area.is_in_group("water"):
 		_water_count = max(_water_count - 1, 0)
 		if _water_count == 0:
 			swimming = false
+	if area.is_in_group("river"):
+		_river_count = max(_river_count - 1, 0)
+		if _river_count == 0:
+			_in_river = false
 
 # Брызги от входа в воду. strength ~ скорость × вес (0.4..4.0).
 func _spawn_splash(strength: float) -> void:

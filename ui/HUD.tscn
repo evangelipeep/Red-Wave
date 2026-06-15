@@ -29,6 +29,9 @@ text = "Голова: 0/5"
 [node name="Toilet" type="Label" parent="VBox"]
 text = "Туалет: готов"
 
+[node name="Zone" type="Label" parent="VBox"]
+text = "Зона: центр"
+
 [node name="Hint" type="Label" parent="VBox"]
 text = ""
 
