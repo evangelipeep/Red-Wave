@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://drwparkgb0001"]
+[gd_scene load_steps=14 format=3 uid="uid://drwparkgb0001"]
 
 [ext_resource type="Script" path="res://world/RunBootstrap.gd" id="1"]
 [ext_resource type="Script" path="res://world/Lighting.gd" id="2"]
@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" path="res://ui/PlanningOverlay.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://ui/MapOverlay.tscn" id="8"]
 [ext_resource type="PackedScene" path="res://ui/FinaleScreen.tscn" id="9"]
+[ext_resource type="Script" path="res://world/HypeBoard.gd" id="10"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -35,6 +36,10 @@ world_env = NodePath("../WorldEnvironment")
 
 [node name="ParkBuilder" type="Node3D" parent="."]
 script = ExtResource("3")
+
+[node name="HypeBoard" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 3, 6)
+script = ExtResource("10")
 
 [node name="SlideRail" parent="." instance=ExtResource("5")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)

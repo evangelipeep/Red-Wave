@@ -19,4 +19,5 @@ signal ping_made(player_id: int, world_pos: Vector3, context: String)
 signal toast(message: String)                               # всплывающее уведомление в HUD
 signal food_eaten(zone: String)                             # поел в зоне (для квеста «еда в 3 зонах»)
 signal score_changed(player_id: int, score: int)
+signal queue_update(slide_id: String, seconds_left: float, active: bool)   # очередь на горке
 @warning_ignore_restore("unused_signal")

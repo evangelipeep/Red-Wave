@@ -35,6 +35,10 @@ text = "Туалет: готов"
 [node name="Zone" type="Label" parent="VBox"]
 text = "Зона: центр"
 
+[node name="Queue" type="Label" parent="VBox"]
+modulate = Color(0.6, 0.9, 1, 1)
+text = ""
+
 [node name="Hint" type="Label" parent="VBox"]
 text = ""
 

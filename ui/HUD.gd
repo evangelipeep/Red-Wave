@@ -11,15 +11,21 @@ extends CanvasLayer
 @onready var _dizzy: Label = $VBox/Dizzy
 @onready var _toilet: Label = $VBox/Toilet
 @onready var _zone: Label = $VBox/Zone
+@onready var _queue: Label = $VBox/Queue
 @onready var _hint: Label = $VBox/Hint
 @onready var _toast: Label = $ToastWrap/Toast
 
 var _toast_time: float = 0.0
+var _queue_text: String = ""
 
 func _ready() -> void:
 	_toast.text = ""
 	_hint.text = "WASD · Shift бег · Space прыжок · E снек · Q блюдо · T туалет · M карта"
 	EventBus.toast.connect(_on_toast)
+	EventBus.queue_update.connect(_on_queue)
+
+func _on_queue(slide_id: String, seconds_left: float, active: bool) -> void:
+	_queue_text = "В очереди (%s): %.0f с — отойди, чтобы выйти" % [slide_id, seconds_left] if active else ""
 
 func _process(delta: float) -> void:
 	_time.text = "%s   (%s)" % [Clock.game_time_string(), _phase_ru(Clock.phase())]
@@ -35,6 +41,7 @@ func _process(delta: float) -> void:
 	else:
 		_toilet.text = "Туалет: через %.1f ч" % WeightSystem.toilet_ready_in_hours()
 	_zone.text = "Зона: %s" % _zone_ru(RunState.current_zone)
+	_queue.text = _queue_text
 
 	if _toast_time > 0.0:
 		_toast_time -= delta

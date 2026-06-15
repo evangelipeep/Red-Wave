@@ -15,6 +15,8 @@ class_name SlideRail
 @export var drag: float = 0.25             # сопротивление, 1/с
 @export var build_demo_curve: bool = true  # собрать тестовый сплайн, если Path пуст
 @export var build_access: bool = true      # собрать лестницу к старту (для теста)
+@export var wait_scale: float = 0.25       # масштаб времени очереди (greybox)
+@export var max_queue_npc: int = 8         # макс. капсул-NPC в очереди
 
 var _path: Path3D
 var _follow: PathFollow3D
@@ -22,6 +24,10 @@ var _mount: Area3D
 var _rider: PlayerController = null
 var _speed: float = 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
+var _queue_player: PlayerController = null  # ждёт в очереди
+var _queue_timer: float = 0.0
+var _npcs: Array = []                       # визуальные капсулы очереди
+var _npc_refresh: float = 0.0
 
 func _ready() -> void:
 	_setup_path()
@@ -84,6 +90,7 @@ func _setup_mount() -> void:
 		add_child(_mount)
 	_mount.global_position = _path.to_global(_path.curve.get_point_position(0))
 	_mount.body_entered.connect(_on_mount_body_entered)
+	_mount.body_exited.connect(_on_mount_body_exited)
 
 func _build_access_stairs(top: Vector3) -> void:
 	var steps := 10
@@ -192,6 +199,8 @@ func _build_pool() -> void:
 func _on_mount_body_entered(body: Node3D) -> void:
 	if _rider != null:
 		return
+	if _queue_player != null:
+		return
 	if not (body is PlayerController):
 		return
 	# Лок экстрима по весу (GDD §5): ≥91 кг не пускают.
@@ -199,7 +208,19 @@ func _on_mount_body_entered(body: Node3D) -> void:
 	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
 		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
 		return
-	_start_ride(body)
+	# Очередь: длина зависит от Гула и времени суток (утром пусто → едем сразу).
+	var wait := Hype.peak_queue(slide_id) * wait_scale
+	if wait <= 0.5:
+		_start_ride(body)
+	else:
+		_queue_player = body
+		_queue_timer = wait
+		EventBus.queue_update.emit(slide_id, wait, true)
+
+func _on_mount_body_exited(body: Node3D) -> void:
+	if body == _queue_player:
+		_queue_player = null
+		EventBus.queue_update.emit(slide_id, 0.0, false)
 
 func _start_ride(player: PlayerController) -> void:
 	_rider = player
@@ -209,19 +230,60 @@ func _start_ride(player: PlayerController) -> void:
 	player.mount_rail(self)
 
 func _physics_process(delta: float) -> void:
-	if _rider == null:
+	# Очередь NPC обновляется по времени суток (утром пусто, к полудню толпа).
+	_npc_refresh -= delta
+	if _npc_refresh <= 0.0:
+		_refresh_npcs()
+		_npc_refresh = 3.0
+
+	if _rider != null:
+		var fwd := -_follow.global_transform.basis.z   # направление движения
+		var slope := -fwd.y                            # >0 на спуске
+		_speed += (_gravity * slope - drag * _speed) * delta
+		_speed = clampf(_speed, 1.0, max_speed)
+		var eff := _speed * WeightSystem.speed_factor()
+		_follow.progress += eff * delta
+		_rider.ride_to(_follow.global_transform, clampf(eff / max_speed, 0.0, 1.0), delta)
+		if _follow.progress_ratio >= 1.0:
+			_finish()
 		return
-	var fwd := -_follow.global_transform.basis.z   # направление движения
-	var slope := -fwd.y                            # >0 на спуске
-	_speed += (_gravity * slope - drag * _speed) * delta
-	_speed = clampf(_speed, 1.0, max_speed)
-	var eff := _speed * WeightSystem.speed_factor()
-	_follow.progress += eff * delta
 
-	_rider.ride_to(_follow.global_transform, clampf(eff / max_speed, 0.0, 1.0), delta)
+	# Ожидание в очереди (игрок стоит в зоне старта).
+	if _queue_player != null:
+		_queue_timer -= delta
+		EventBus.queue_update.emit(slide_id, maxf(_queue_timer, 0.0), true)
+		if _queue_timer <= 0.0:
+			var p := _queue_player
+			_queue_player = null
+			EventBus.queue_update.emit(slide_id, 0.0, false)
+			_start_ride(p)
 
-	if _follow.progress_ratio >= 1.0:
-		_finish()
+# --- NPC-очередь (визуальная). ---
+func _refresh_npcs() -> void:
+	if _mount == null:
+		return
+	var target := 0
+	if Clock.running:
+		target = clampi(int(Hype.peak_queue(slide_id) / 12.0), 0, max_queue_npc)
+	while _npcs.size() < target:
+		var npc := _make_npc(_npcs.size())
+		_npcs.append(npc)
+		add_child(npc)
+	while _npcs.size() > target:
+		var old: Node = _npcs.pop_back()
+		if is_instance_valid(old):
+			old.queue_free()
+
+func _make_npc(i: int) -> MeshInstance3D:
+	var npc := MeshInstance3D.new()
+	var mesh := CapsuleMesh.new()
+	mesh.radius = 0.35
+	mesh.height = 1.7
+	npc.mesh = mesh
+	npc.material_override = _make_material(Color.from_hsv(fmod(0.13 * float(i), 1.0), 0.5, 0.9), false)
+	var base := _mount.position   # локально ≈ верх лестницы
+	npc.position = base + Vector3(1.6, 0.95, 0.6 + float(i) * 1.1)
+	return npc
 
 func _finish() -> void:
 	var rider := _rider
