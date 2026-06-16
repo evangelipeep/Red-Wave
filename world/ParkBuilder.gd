@@ -47,6 +47,9 @@ func _ready() -> void:
 		_build_foundation(f["name"], f["pos"], f["r"])
 	for s in SHOPS:
 		_build_shop(s["id"], s["pos"])
+	var bard := BardPOI.new()
+	bard.position = Vector3(10, 0, 32)
+	add_child(bard)
 	_build_weigh(Vector3(14, 0, 40))
 	_build_weigh(Vector3(-14, 0, 40))
 	_build_theater(Vector3(0, 0, -8))

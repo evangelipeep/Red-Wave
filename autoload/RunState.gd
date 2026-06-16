@@ -15,6 +15,7 @@ var score: int = 0                   # очки за день
 var markers: Array[Vector3] = []     # приватные метки игрока (карта M)
 var pings: Array = []                # активные пинги [{pos, until}] для карты/миникарты
 var souvenirs: Dictionary = {}       # купленные сувениры по лавкам (shop_id → true)
+var bard_photo: bool = false         # сделал фото с Бардом
 var offenses: int = 0                 # нарушений очереди (прыжки без очереди)
 var run_blocked: bool = false         # бег заблокирован охраной (наказание)
 var queue_jump_banned: bool = false   # после 2 нарушений — прыгать без очереди вообще нельзя
@@ -41,6 +42,7 @@ func reset() -> void:
 	markers.clear()
 	pings.clear()
 	souvenirs.clear()
+	bard_photo = false
 	personal_quest.clear()
 	offenses = 0
 	run_blocked = false

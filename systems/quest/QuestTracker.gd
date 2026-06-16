@@ -4,7 +4,7 @@ extends Node
 ## завершении. Оценивает то, что уже есть (горки, вес, голова, еда, театры/шоу);
 ## атомы систем «в разработке» (лавки/гонки/очереди/круги) пока авто-зачёт.
 
-const AUTO_AXES := ["bard", "race", "skip", "laps"]
+const AUTO_AXES := ["race", "skip", "laps"]
 const EVE_19_FRAC := 10.0 / 12.0   # 19:00 при дне 09:00–21:00
 const SHOW_WINDOW := 20.0          # сек, сколько идёт шоу после старта
 
@@ -215,6 +215,8 @@ func _evaluate(atom: Dictionary) -> bool:
 			return _eaten_zones.size() >= 3
 		"shop":
 			return RunState.souvenirs.size() >= 3
+		"bard":
+			return RunState.bard_photo
 		"shows":
 			return _shows_attended >= n
 		"weightlow":
