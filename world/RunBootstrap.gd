@@ -4,6 +4,7 @@ extends Node3D
 
 @export var debug_run_length: float = 120.0   # короткий день для теста (реальные сек); боевое — 1800
 @export var use_planning: bool = true          # фаза планирования (ParkGreybox); тест горки — false
+@export var hard_mode: bool = false            # сложный режим: штрафы за невыполненные квесты
 
 const BALLAD_RADIUS := 13.0   # «красный круг» в центре — куда надо прийти к финалу
 
@@ -44,7 +45,15 @@ func _process(_delta: float) -> void:
 		_ballad_attended = true
 
 func _on_day_end() -> void:
-	# Штраф только в настоящем парке (где есть зоны), не в тест-сцене горки.
+	# Сложный режим: штрафы за невыполненные квесты (GDD, заморожено).
+	if hard_mode:
+		if not QuestTracker.quest_complete():
+			RunState.add_score(GameConstants.HARD_MAIN_FAIL)
+			EventBus.toast.emit("Сложный режим: главный квест провален (%d)" % GameConstants.HARD_MAIN_FAIL)
+		if not RunState.personal_quest.is_empty() and not QuestTracker.personal_is_done():
+			RunState.add_score(GameConstants.HARD_PERSONAL_FAIL)
+			EventBus.toast.emit("Сложный режим: личное провалено (%d)" % GameConstants.HARD_PERSONAL_FAIL)
+	# Штраф за Балладу только в настоящем парке (где есть зоны), не в тест-сцене.
 	if get_tree().get_nodes_in_group("zone").is_empty():
 		return
 	if _ballad_started and not _ballad_attended:
