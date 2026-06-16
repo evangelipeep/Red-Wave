@@ -83,6 +83,13 @@ func _draw() -> void:
 		if show_labels:
 			_label(font, wp + Vector2(0, 14), "Весы", Color(0.3, 0.9, 0.6))
 
+	# Театры.
+	for th in get_tree().get_nodes_in_group("poi_theater"):
+		var tp := world_to_map((th as Node3D).global_position)
+		draw_rect(Rect2(tp - Vector2(6, 6), Vector2(12, 12)), Color(0.6, 0.4, 0.75))
+		if show_labels:
+			_label(font, tp + Vector2(0, 16), "Театр", Color(0.7, 0.5, 0.85))
+
 	var players := get_tree().get_nodes_in_group("player")
 	if not players.is_empty():
 		var pl := players[0] as Node3D

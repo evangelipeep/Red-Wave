@@ -68,7 +68,7 @@ func _build_atoms() -> Array:
 			A.append({"name":"Спокойные×%d"%n, "ep":3.0*n, "t":n*100.0, "fixed":false, "coin":0, "axis":"calm", "n":n})
 	# ATTEND_SHOWS(k)  (fixed_time)
 	for k in [1, 2, 3]:
-		A.append({"name":"Театры×%d"%k, "ep":3.0*k, "t":k*110.0, "fixed":true, "coin":0, "axis":"shows"})
+		A.append({"name":"Театры×%d"%k, "ep":3.0*k, "t":k*110.0, "fixed":true, "coin":0, "axis":"shows", "n":k})
 	# PHOTO_BARD
 	A.append({"name":"Фото с Бардом", "ep":3.0, "t":120.0, "fixed":false, "coin":0, "axis":"bard"})
 	# FOOD_ALL_ZONES

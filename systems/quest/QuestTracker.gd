@@ -1,11 +1,12 @@
 extends Node
 ## Автолоад: трекинг главного квеста. По ходу дня проверяет каждый атом бандла
 ## (RunState.main_quest), считает выполнение и начисляет MAIN_PAYOUT при полном
-## завершении. Оценивает то, что уже есть в игре (горки, вес, голова, еда по зонам);
-## атомы систем «в разработке» (театры/лавки/гонки/очереди/круги) пока авто-зачёт.
+## завершении. Оценивает то, что уже есть (горки, вес, голова, еда, театры/шоу);
+## атомы систем «в разработке» (лавки/гонки/очереди/круги) пока авто-зачёт.
 
-const AUTO_AXES := ["shows", "bard", "shop", "race", "skip", "laps"]
+const AUTO_AXES := ["bard", "shop", "race", "skip", "laps"]
 const EVE_19_FRAC := 10.0 / 12.0   # 19:00 при дне 09:00–21:00
+const SHOW_WINDOW := 20.0          # сек, сколько идёт шоу после старта
 
 var done: Array = []        # done[i] для main_quest[i]
 var _paid: bool = false
@@ -18,13 +19,38 @@ var _eaten_zones: Dictionary = {}
 var _saw_dizzy_max: bool = false
 var _dizzy_cleared_in_time: bool = false
 var _weighthi_done: bool = false
+var _shows_attended: int = 0
+var _show_window: float = 0.0
+var _show_counted: bool = false
 
 func _ready() -> void:
 	EventBus.run_started.connect(_on_run_started)
 	EventBus.slide_completed.connect(_on_ride)
 	EventBus.food_eaten.connect(_on_food)
 	EventBus.dizziness_changed.connect(_on_dizzy)
+	EventBus.scheduled_event.connect(_on_scheduled)
 	Clock.day_finished.connect(_on_day_finished)
+
+func _process(delta: float) -> void:
+	if _show_window <= 0.0:
+		return
+	_show_window -= delta
+	if not _show_counted and _at_theater():
+		_show_counted = true
+		_shows_attended += 1
+		EventBus.toast.emit("Посетил шоу! (%d)" % _shows_attended)
+		_reevaluate(true)
+
+func _on_scheduled(ev: String) -> void:
+	if ev.begins_with("show"):
+		_show_window = SHOW_WINDOW
+		_show_counted = false
+
+func _at_theater() -> bool:
+	for t in get_tree().get_nodes_in_group("poi_theater"):
+		if (t as TheaterPOI).player_inside:
+			return true
+	return false
 
 func is_done(i: int) -> bool:
 	return i >= 0 and i < done.size() and done[i]
@@ -43,6 +69,9 @@ func _on_run_started() -> void:
 	_saw_dizzy_max = false
 	_dizzy_cleared_in_time = false
 	_weighthi_done = false
+	_shows_attended = 0
+	_show_window = 0.0
+	_show_counted = false
 	_paid = false
 	personal_done = false
 	_personal_paid = false
@@ -143,6 +172,8 @@ func _progress_atom(a: Dictionary) -> Vector2i:
 			return Vector2i(_zone_ridden_count(z), Slides.in_zone(z).size())
 		"food":
 			return Vector2i(mini(_eaten_zones.size(), 3), 3)
+		"shows":
+			return Vector2i(mini(_shows_attended, n), n)
 		_:
 			return Vector2i(1 if _evaluate(a) else 0, 1)
 
@@ -180,6 +211,8 @@ func _evaluate(atom: Dictionary) -> bool:
 			return _distinct_sensations() >= n
 		"food":
 			return _eaten_zones.size() >= 3
+		"shows":
+			return _shows_attended >= n
 		"weightlow":
 			return (not Clock.running) and WeightSystem.kg <= 79.0
 		"weighthi":

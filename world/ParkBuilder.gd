@@ -25,11 +25,17 @@ func _ready() -> void:
 	_build_river()
 	_build_weigh(Vector3(9, 0, 8))
 	_build_weigh(Vector3(-9, 0, 8))
+	_build_theater(Vector3(0, 0, 12))
 
 func _build_weigh(pos: Vector3) -> void:
 	var w := WeighStation.new()
 	w.position = pos
 	add_child(w)
+
+func _build_theater(pos: Vector3) -> void:
+	var t := TheaterPOI.new()
+	t.position = pos
+	add_child(t)
 
 func _mat(c: Color, transparent := false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
