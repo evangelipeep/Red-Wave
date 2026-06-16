@@ -17,12 +17,14 @@ func _spawn() -> void:
 	_spawned = true
 	var host := get_tree().current_scene
 	var slides := get_tree().get_nodes_in_group("slide")
+	# Смесь типов поведения: любители всего / за хайпом / расслабленные.
+	var behaviors := [NPCAgent.Behavior.TOUR, NPCAgent.Behavior.POPULAR, NPCAgent.Behavior.CASUAL]
 	for i in npc_count:
 		if slides.is_empty():
 			break
 		var npc := NPCAgent.new()
 		host.add_child(npc)
-		npc.setup(slides[i % slides.size()])
+		npc.setup(behaviors[i % behaviors.size()])
 	# Фоновая толпа — оживляет территорию.
 	for j in ambient_count:
 		host.add_child(Visitor.new())

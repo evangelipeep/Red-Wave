@@ -388,10 +388,7 @@ func _free_occupancy(delta: float) -> void:
 		return
 	_occupy_t += delta
 	var done := false
-	if _occupant is NPCAgent:
-		if (_occupant as NPCAgent).state == NPCAgent.St.WANDER:
-			done = true
-	elif _occupant is PlayerController:
+	if _occupant is PlayerController:
 		if _rider == null:
 			var pl := _occupant as PlayerController
 			if pl.swimming:
@@ -525,6 +522,11 @@ func _drive_npc(delta: float) -> void:
 		if t >= 1.0:
 			var done := _npc_rider
 			_npc_rider = null
+			# Слот свободен сразу, как только ездок закончил спуск+вылезание
+			# (раньше ждали состояния WANDER — мешало NPC уходить на другую горку).
+			if _occupant == done:
+				_occupied = false
+				_occupant = null
 			done.end_cycle()
 
 func _update_light() -> void:

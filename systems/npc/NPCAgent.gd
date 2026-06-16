@@ -1,19 +1,26 @@
 extends CharacterBody3D
 class_name NPCAgent
-## NPC с коллизией (не призрак): ходит по земле через move_and_slide, упирается в
-## игрока и друг друга. Цикл: дойти до очереди → стоять → (горка ведёт вниз) →
-## вылезти сбоку по лесенке → бродить → снова в очередь. Во время спуска/вылезания
-## коллизия выключена (едет по сплайну).
+## Умный посетитель горок с типом поведения (за ним интересно наблюдать):
+##   TOUR    — катается ПОДРЯД по всем горкам;
+##   POPULAR — только по популярным (высокий Гул);
+##   CASUAL  — 1–2 спуска, потом в театр или поплавать по реке, и снова.
+## Движение пока прямое (move_and_slide) + анти-стак; NavMesh сгладит позже (в плане).
 
-enum St { GO_QUEUE, IN_QUEUE, GO_BOARD, RIDING, EXIT, WANDER }
+enum St { GO_QUEUE, IN_QUEUE, GO_BOARD, RIDING, EXIT, GO_THEATER, AT_THEATER, GO_RIVER, AT_RIVER }
+enum Behavior { TOUR, POPULAR, CASUAL }
 
 @export var speed: float = 3.5
 
-var slide: SlideRail = null
-var state: int = St.WANDER
+var slide: SlideRail = null          # текущая целевая горка
+var behavior: int = Behavior.TOUR
+var state: int = St.GO_QUEUE
 var ride_t: float = 0.0
+
+var _all_slides: Array = []
+var _slide_idx: int = 0
+var _ride_count: int = 0
 var _target: Vector3 = Vector3.ZERO
-var _wander_timer: float = 0.0
+var _loiter_t: float = 0.0
 var _stuck_t: float = 0.0
 var _grav: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
 var _col: CollisionShape3D
@@ -32,22 +39,33 @@ func _ready() -> void:
 	cm.height = 1.7
 	mesh.mesh = cm
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.from_hsv(randf(), 0.55, 0.9)
+	mat.albedo_color = _behavior_color()
 	mesh.material_override = mat
 	mesh.position = Vector3(0, 0.9, 0)
 	add_child(mesh)
 
-func setup(s: SlideRail) -> void:
-	slide = s
-	global_position = s.wander_point()   # появляемся у своей горки
+func setup(b: int) -> void:
+	behavior = b
+	_all_slides = get_tree().get_nodes_in_group("slide")
+	if _all_slides.is_empty():
+		return
+	_slide_idx = randi() % _all_slides.size()
+	slide = _all_slides[_slide_idx]
+	global_position = slide.wander_point()
 	_go_queue()
+
+func _behavior_color() -> Color:
+	match behavior:
+		Behavior.TOUR: return Color(0.3, 0.8, 1.0)     # любитель всего — голубой
+		Behavior.POPULAR: return Color(1.0, 0.5, 0.3)  # за хайпом — оранжевый
+		_: return Color(0.6, 0.9, 0.5)                 # расслабленный — зелёный
 
 func _physics_process(delta: float) -> void:
 	if slide == null:
 		return
 	match state:
 		St.RIDING, St.EXIT:
-			return   # позицию задаёт SlideRail (коллизия выключена)
+			return   # позицию задаёт SlideRail
 		St.GO_QUEUE:
 			var qb := slide.queue_back_position()
 			_step(qb, delta)
@@ -56,19 +74,28 @@ func _physics_process(delta: float) -> void:
 				slide.join_queue(self)
 				state = St.IN_QUEUE
 		St.IN_QUEUE:
-			# Стоять за впереди стоящим — это нормально (без антистака).
 			_step(slide.slot_position(slide.queue_index(self)), delta)
 		St.GO_BOARD:
 			_step(_target, delta)
 			_antistuck(_target, delta)
 			if _near(_target):
 				slide.npc_board(self)
-		St.WANDER:
+		St.GO_THEATER, St.GO_RIVER:
 			_step(_target, delta)
 			_antistuck(_target, delta)
-			_wander_timer -= delta
-			if _near(_target) or _wander_timer <= 0.0:
-				_go_queue()
+			if _near(_target):
+				state = (St.AT_THEATER if state == St.GO_THEATER else St.AT_RIVER)
+				_loiter_t = randf_range(5.0, 10.0)
+		St.AT_THEATER:
+			_loiter_t -= delta
+			if _loiter_t <= 0.0:
+				_decide_next()
+		St.AT_RIVER:
+			# Лёгкое «плавание» — дрейф вдоль реки.
+			_step(_target, delta)
+			_loiter_t -= delta
+			if _loiter_t <= 0.0:
+				_decide_next()
 
 func _step(target: Vector3, delta: float) -> void:
 	var flat := Vector3(target.x - global_position.x, 0.0, target.z - global_position.z)
@@ -83,9 +110,8 @@ func _step(target: Vector3, delta: float) -> void:
 	move_and_slide()
 
 func _near(target: Vector3) -> bool:
-	return Vector2(target.x - global_position.x, target.z - global_position.z).length() < 0.85
+	return Vector2(target.x - global_position.x, target.z - global_position.z).length() < 0.9
 
-# Аварийное освобождение, если NPC упёрся в геометрию и не двигается.
 func _antistuck(target: Vector3, delta: float) -> void:
 	var rv := get_real_velocity()
 	if Vector2(rv.x, rv.z).length() < 0.3 and not _near(target):
@@ -99,11 +125,48 @@ func _antistuck(target: Vector3, delta: float) -> void:
 func _go_queue() -> void:
 	state = St.GO_QUEUE
 	_target = slide.queue_back_position()
+	_stuck_t = 0.0
 
-func _wander() -> void:
-	state = St.WANDER
-	_wander_timer = randf_range(3.0, 7.0)
-	_target = slide.wander_point()
+# Куда дальше после заезда — зависит от типа поведения.
+func _decide_next() -> void:
+	if _all_slides.is_empty():
+		return
+	match behavior:
+		Behavior.TOUR:
+			_slide_idx = (_slide_idx + 1) % _all_slides.size()
+			slide = _all_slides[_slide_idx]
+			_go_queue()
+		Behavior.POPULAR:
+			slide = _pick_popular()
+			_go_queue()
+		Behavior.CASUAL:
+			if _ride_count < 2:
+				slide = _all_slides[randi() % _all_slides.size()]
+				_go_queue()
+			else:
+				_ride_count = 0
+				if randf() < 0.5:
+					_go_to(St.GO_THEATER, "poi_theater")
+				else:
+					_go_to(St.GO_RIVER, "river")
+
+func _pick_popular() -> SlideRail:
+	var hot: Array = []
+	for s in _all_slides:
+		if int(Hype.gul.get((s as SlideRail).slide_id, 50)) >= 60:
+			hot.append(s)
+	if hot.is_empty():
+		hot = _all_slides
+	return hot[randi() % hot.size()]
+
+func _go_to(go_state: int, group: String) -> void:
+	var nodes := get_tree().get_nodes_in_group(group)
+	if nodes.is_empty():
+		_go_queue()
+		return
+	state = go_state
+	_target = (nodes[randi() % nodes.size()] as Node3D).global_position
+	_stuck_t = 0.0
 
 # --- Управляется SlideRail. ---
 func go_board(target: Vector3) -> void:
@@ -122,4 +185,5 @@ func begin_exit() -> void:
 
 func end_cycle() -> void:
 	_col.disabled = false
-	_wander()
+	_ride_count += 1
+	_decide_next()
