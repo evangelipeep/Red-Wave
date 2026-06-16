@@ -31,7 +31,10 @@ var swimming: bool = false
 var _water_surface_y: float = 0.0           # уровень поверхности текущей воды
 var _in_river: bool = false                 # в ленивой реке (есть течение)
 var _river_flow: Vector3 = Vector3.ZERO     # направление течения текущего русла
+var _river_center: Vector3 = Vector3.ZERO   # центр кольца реки (для счёта кругов)
 var _river_count: int = 0
+var _river_angle_accum: float = 0.0         # накопленный угол вокруг центра
+var _river_last_angle: float = 0.0
 var riding: bool = false        # едем с горки — движением управляет SlideRail
 var _rail: Node = null
 
@@ -172,10 +175,16 @@ func _swim(delta: float) -> void:
 	velocity.x += horiz.x * swim_speed * water_drag * delta
 	velocity.z += horiz.z * swim_speed * water_drag * delta
 
-	# Течение ленивой реки — тащит вдоль русла (flow_dir).
+	# Течение ленивой реки — тащит вдоль русла (flow_dir) + считаем круги.
 	if _in_river:
 		velocity.x += _river_flow.x * river_drift * water_drag * delta
 		velocity.z += _river_flow.z * river_drift * water_drag * delta
+		var a := atan2(global_position.z - _river_center.z, global_position.x - _river_center.x)
+		_river_angle_accum += wrapf(a - _river_last_angle, -PI, PI)
+		_river_last_angle = a
+		if absf(_river_angle_accum) >= TAU:
+			_river_angle_accum -= TAU * signf(_river_angle_accum)
+			RunState.add_lap()
 
 	# Вертикаль (как в Minecraft): Space — всплывать, Ctrl — нырять, иначе лёгкое погружение.
 	# Всплыл к поверхности и держишь Space → мягко выходишь (уносишь ≤ swim_rise_speed).
@@ -235,6 +244,8 @@ func _on_water_entered(area: Area3D) -> void:
 		_river_count += 1
 		_in_river = true
 		_river_flow = area.get_meta("flow_dir", Vector3.ZERO)
+		_river_center = area.get_meta("river_center", Vector3.ZERO)
+		_river_last_angle = atan2(global_position.z - _river_center.z, global_position.x - _river_center.x)
 
 func _on_water_exited(area: Area3D) -> void:
 	if area.is_in_group("water"):
@@ -245,6 +256,7 @@ func _on_water_exited(area: Area3D) -> void:
 		_river_count = max(_river_count - 1, 0)
 		if _river_count == 0:
 			_in_river = false
+			_river_angle_accum = 0.0
 
 # Брызги от входа в воду. strength ~ скорость × вес (0.4..4.0).
 func _spawn_splash(strength: float) -> void:

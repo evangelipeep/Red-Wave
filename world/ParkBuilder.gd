@@ -173,23 +173,22 @@ func _build_wave_pool() -> void:
 	add_child(area)
 
 func _build_capillary() -> void:
-	# Две «ленивые» ветки-капилляры от Волн в стороны (Сердце и Дельта).
-	var left := [WAVE_POOL, Vector3(-22, 0, 14), Vector3(-40, 0, 6), Vector3(-55, 0, -10)]
-	var right := [WAVE_POOL, Vector3(24, 0, 12), Vector3(48, 0, 2), Vector3(60, 0, -16)]
-	_capillary_arm(left)
-	_capillary_arm(right)
-
-func _capillary_arm(points: Array) -> void:
-	for i in range(points.size() - 1):
-		var a: Vector3 = points[i]
-		var b: Vector3 = points[i + 1]
-		var mid := (a + b) * 0.5
-		var dir := (b - a)
+	# Ленивая река-капилляр — замкнутое кольцо (овал) вокруг центра. Течение по кругу,
+	# можно наматывать круги (квест «круги по реке»). Центр кольца — начало координат.
+	var n := 28
+	var rx := 34.0
+	var rz := 28.0
+	for i in range(n):
+		var a0 := TAU * float(i) / float(n)
+		var a1 := TAU * float(i + 1) / float(n)
+		var p0 := Vector3(cos(a0) * rx, 0, sin(a0) * rz)
+		var p1 := Vector3(cos(a1) * rx, 0, sin(a1) * rz)
+		var mid := (p0 + p1) * 0.5
+		var dir := p1 - p0
 		dir.y = 0
 		var seg_len := dir.length()
 		dir = dir.normalized()
 		var basis := Basis.looking_at(dir, Vector3.UP)
-		# Вода (визуал).
 		var vis := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = Vector3(5, 0.3, seg_len + 1.0)
@@ -197,12 +196,12 @@ func _capillary_arm(points: Array) -> void:
 		vis.material_override = _mat(Color(0.8, 0.05, 0.05, 0.7), true)
 		vis.transform = Transform3D(basis, mid + Vector3(0, 0.15, 0))
 		add_child(vis)
-		# Объём воды + течение вдоль русла.
 		var area := Area3D.new()
 		area.add_to_group("water")
 		area.add_to_group("river")
 		area.set_meta("surface_y", 0.3)
 		area.set_meta("flow_dir", dir)
+		area.set_meta("river_center", Vector3.ZERO)
 		var cs := CollisionShape3D.new()
 		var box := BoxShape3D.new()
 		box.size = Vector3(5, 2.0, seg_len + 1.0)
