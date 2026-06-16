@@ -27,15 +27,14 @@ var _speed: float = 0.0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
 
 var _npc_queue: Array = []
-var _player_waiting: bool = false
-var _player_ref: PlayerController = null
+var _in_queue_zone: bool = false    # игрок физически в зоне ожидания
+var _in_board_zone: bool = false    # игрок физически в зоне посадки
+var _player_ref: PlayerController = null   # != null пока игрок «в очереди» (в любой из зон)
 var _player_ahead: int = 0
 var _player_wait: float = 0.0
 var _player_no_wait: bool = false
 var _player_legit: bool = false
-var _player_turn: bool = false      # очередь подошла (можно идти на посадку легитимно)
-var _player_turn_t: float = 0.0
-var _was_player_next: bool = false
+var _was_green: bool = false
 
 var _occupied: bool = false
 var _occupant: Object = null
@@ -110,8 +109,8 @@ func _setup_mount() -> void:
 	_mount.add_child(cs)
 	add_child(_mount)
 	_mount.global_position = to_global(_top_local + QUEUE_BACK_OFFSET)
-	_mount.body_entered.connect(_on_mount_body_entered)
-	_mount.body_exited.connect(_on_mount_body_exited)
+	_mount.body_entered.connect(_on_queue_entered)
+	_mount.body_exited.connect(_on_queue_exited)
 
 	# Зона ПОСАДКИ (зашёл — поехал) — у самого старта горки.
 	_board_zone = Area3D.new()
@@ -124,6 +123,7 @@ func _setup_mount() -> void:
 	add_child(_board_zone)
 	_board_zone.global_position = to_global(_top_local + BOARD_OFFSET)
 	_board_zone.body_entered.connect(_on_board_entered)
+	_board_zone.body_exited.connect(_on_board_exited)
 
 func board_point() -> Vector3:
 	return to_global(_top_local + BOARD_OFFSET)
@@ -199,7 +199,7 @@ func _build_visuals() -> void:
 	tube.use_collision = true
 	add_child(tube)
 	tube.path_node = tube.get_path_to(_path)
-	tube.material = _make_material(Color(0.4, 0.7, 1.0, 0.45), true)
+	tube.material = _make_material(Color(0.2, 0.55, 0.95), false)   # непрозрачная — горку видно
 
 	var flow := CSGPolygon3D.new()
 	flow.name = "SlideWater"
@@ -330,27 +330,40 @@ func ride_point(t: float) -> Vector3:
 	var baked_len := _path.curve.get_baked_length()
 	return _path.to_global(_path.curve.sample_baked(clampf(t, 0.0, 1.0) * baked_len))
 
-# --- Игрок входит/выходит из очереди (зона посадки на земле). ---
-func _on_mount_body_entered(body: Node3D) -> void:
+# --- Очередь игрока: «в очереди», пока он физически в зоне ожидания ИЛИ посадки.
+# Ушёл из обеих зон → место в очереди теряется (ничего не запоминается). ---
+func _player_present() -> bool:
+	return _in_queue_zone or _in_board_zone
+
+func _on_queue_entered(body: Node3D) -> void:
 	if not (body is PlayerController):
 		return
-	if _player_waiting or _occupant == body:
-		return
-	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
-	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
-		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
-		return
-	_player_waiting = true
-	_player_ref = body
-	_player_ahead = _npc_queue.size()
-	_player_wait = 0.0
+	var was := _player_present()
+	_in_queue_zone = true
+	if not was:
+		_begin_wait(body)
 
-func _on_mount_body_exited(body: Node3D) -> void:
-	# Если очередь подошла — выход к посадке не сбрасывает статус.
-	if body == _player_ref and not _player_turn:
-		_player_waiting = false
-		_player_ref = null
-		EventBus.queue_update.emit(slide_id, 0, false)
+func _on_queue_exited(body: Node3D) -> void:
+	if body == _player_ref:
+		_in_queue_zone = false
+		if not _player_present():
+			_end_wait()
+
+func _on_board_exited(body: Node3D) -> void:
+	if body == _player_ref:
+		_in_board_zone = false
+		if not _player_present():
+			_end_wait()
+
+func _begin_wait(body: PlayerController) -> void:
+	_player_ref = body
+	_player_ahead = _npc_queue.size()   # сколько NPC впереди в момент входа
+	_player_wait = 0.0
+	_player_legit = false
+
+func _end_wait() -> void:
+	_player_ref = null
+	EventBus.queue_update.emit(slide_id, 0, false)
 
 func _physics_process(delta: float) -> void:
 	_free_occupancy(delta)
@@ -361,18 +374,9 @@ func _physics_process(delta: float) -> void:
 		_drive_npc(delta)
 	elif not _occupied:
 		_dispatch()
-	if _player_waiting:
+	if _player_ref != null:
 		_player_wait += delta
 		EventBus.queue_update.emit(slide_id, _player_ahead, true)
-	# Ход подошёл, но игрок не сел вовремя — теряет очередь.
-	if _player_turn:
-		_player_turn_t -= delta
-		if _player_turn_t <= 0.0:
-			_player_turn = false
-			_player_waiting = false
-			_player_ref = null
-			EventBus.queue_update.emit(slide_id, 0, false)
-			EventBus.toast.emit("Очередь подошла, но вы ушли — встаньте заново")
 
 func _free_occupancy(delta: float) -> void:
 	if not _occupied:
@@ -408,7 +412,7 @@ func _dispatch() -> void:
 		_occupy_t = 0.0
 		_npc_phase = 0
 		front.go_board(board_point())
-		if _player_waiting:
+		if _player_ref != null:
 			_player_ahead = maxi(_player_ahead - 1, 0)
 
 # NPC дошёл до посадки — поехал.
@@ -422,6 +426,11 @@ func npc_board(npc) -> void:
 func _on_board_entered(body: Node3D) -> void:
 	if not (body is PlayerController):
 		return
+	var was := _player_present()
+	_in_board_zone = true
+	if not was:
+		_begin_wait(body)   # пришёл прямо к посадке, минуя ожидание
+	# Занято кем-то — ждём.
 	if _occupied or _rider != null or _npc_rider != null:
 		EventBus.toast.emit("Занято — подождите")
 		return
@@ -429,10 +438,11 @@ func _on_board_entered(body: Node3D) -> void:
 	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
 		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
 		return
-	if _player_turn:
+	# Твоя очередь? (впереди никого) — едешь честно. Иначе это прыжок без очереди.
+	if _player_ahead <= 0:
 		_begin_player_ride(body, true)
 	elif RunState.queue_jump_banned:
-		EventBus.toast.emit("Охранник не пускает без очереди! Встаньте в очередь.")
+		EventBus.toast.emit("Охранник не пускает без очереди! Встаньте в очередь (впереди %d)." % _player_ahead)
 	else:
 		_begin_player_ride(body, false)
 		RunState.register_offense()
@@ -440,9 +450,9 @@ func _on_board_entered(body: Node3D) -> void:
 func _begin_player_ride(p: PlayerController, legit: bool) -> void:
 	_player_legit = legit
 	_player_no_wait = legit and _player_wait < 4.0
-	_player_waiting = false
-	_player_turn = false
 	_player_ref = null
+	_in_queue_zone = false
+	_in_board_zone = false
 	_occupied = true
 	_occupant = p
 	_occupy_t = 0.0
@@ -486,17 +496,15 @@ func _drive_npc(delta: float) -> void:
 			done.end_cycle()
 
 func _update_light() -> void:
-	var player_next := _player_waiting and _player_ahead <= 0 and not _occupied \
+	var green := _player_ref != null and _player_ahead <= 0 and not _occupied \
 		and _rider == null and _npc_rider == null
 	if _light_green:
-		_light_green.visible = player_next
+		_light_green.visible = green
 	if _light_red:
-		_light_red.visible = not player_next
-	if player_next and not _was_player_next:
-		_player_turn = true
-		_player_turn_t = 12.0
-		EventBus.toast.emit("🟢 Ваша очередь — подойдите к посадке!")
-	_was_player_next = player_next
+		_light_red.visible = not green
+	if green and not _was_green:
+		EventBus.toast.emit("🟢 Ваша очередь — зайдите на ПОСАДКУ!")
+	_was_green = green
 
 func _finish() -> void:
 	var rider := _rider
