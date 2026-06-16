@@ -1,0 +1,64 @@
+extends CharacterBody3D
+class_name Visitor
+## Фоновый посетитель: просто гуляет по парку между случайными точками (коллизия,
+## без навмеша + анти-стак). Не взаимодействует с горками — оживляет территорию.
+
+@export var speed: float = 2.6
+
+var _target: Vector3 = Vector3.ZERO
+var _retarget_t: float = 0.0
+var _stuck_t: float = 0.0
+var _grav: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
+
+func _ready() -> void:
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.35
+	cap.height = 1.7
+	var col := CollisionShape3D.new()
+	col.shape = cap
+	col.position = Vector3(0, 0.9, 0)
+	add_child(col)
+	var mesh := MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	cm.radius = 0.35
+	cm.height = 1.7
+	mesh.mesh = cm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color.from_hsv(randf(), 0.45, 0.85)
+	mesh.material_override = mat
+	mesh.position = Vector3(0, 0.9, 0)
+	add_child(mesh)
+	global_position = _rand_point()
+	_pick()
+
+func _rand_point() -> Vector3:
+	return Vector3(randf_range(-85, 85), 0.4, randf_range(-65, 65))
+
+func _pick() -> void:
+	_target = _rand_point()
+	_retarget_t = randf_range(4.0, 9.0)
+	_stuck_t = 0.0
+
+func _physics_process(delta: float) -> void:
+	var flat := Vector3(_target.x - global_position.x, 0.0, _target.z - global_position.z)
+	if flat.length() > 1.0:
+		var dir := flat.normalized()
+		velocity.x = dir.x * speed
+		velocity.z = dir.z * speed
+	else:
+		velocity.x = move_toward(velocity.x, 0.0, speed)
+		velocity.z = move_toward(velocity.z, 0.0, speed)
+	velocity.y = (velocity.y - _grav * delta) if not is_on_floor() else 0.0
+	move_and_slide()
+
+	_retarget_t -= delta
+	var rv := get_real_velocity()
+	if Vector2(rv.x, rv.z).length() < 0.3 and flat.length() > 1.5:
+		_stuck_t += delta
+	else:
+		_stuck_t = 0.0
+	if _retarget_t <= 0.0 or flat.length() <= 1.0:
+		_pick()
+	elif _stuck_t > 4.0:
+		global_position = Vector3(_target.x, global_position.y, _target.z)  # аварийно
+		_pick()
