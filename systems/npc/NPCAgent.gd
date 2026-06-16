@@ -39,7 +39,7 @@ func _ready() -> void:
 
 func setup(s: SlideRail) -> void:
 	slide = s
-	global_position = Vector3(randf_range(-12.0, 12.0), 1.0, randf_range(-2.0, 14.0))
+	global_position = s.wander_point()   # появляемся у своей горки
 	_go_queue()
 
 func _physics_process(delta: float) -> void:

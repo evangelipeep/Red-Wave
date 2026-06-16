@@ -30,7 +30,7 @@ class_name PlayerController
 var swimming: bool = false
 var _water_surface_y: float = 0.0           # уровень поверхности текущей воды
 var _in_river: bool = false                 # в ленивой реке (есть течение)
-var _river_center: Vector3 = Vector3.ZERO
+var _river_flow: Vector3 = Vector3.ZERO     # направление течения текущего русла
 var _river_count: int = 0
 var riding: bool = false        # едем с горки — движением управляет SlideRail
 var _rail: Node = null
@@ -172,14 +172,10 @@ func _swim(delta: float) -> void:
 	velocity.x += horiz.x * swim_speed * water_drag * delta
 	velocity.z += horiz.z * swim_speed * water_drag * delta
 
-	# Течение ленивой реки — тащит по кольцу вокруг центра.
+	# Течение ленивой реки — тащит вдоль русла (flow_dir).
 	if _in_river:
-		var tang := Vector3.UP.cross(global_position - _river_center)
-		tang.y = 0.0
-		if tang.length() > 0.01:
-			tang = tang.normalized()
-			velocity.x += tang.x * river_drift * water_drag * delta
-			velocity.z += tang.z * river_drift * water_drag * delta
+		velocity.x += _river_flow.x * river_drift * water_drag * delta
+		velocity.z += _river_flow.z * river_drift * water_drag * delta
 
 	# Вертикаль (как в Minecraft): Space — всплывать, Ctrl — нырять, иначе лёгкое погружение.
 	# Всплыл к поверхности и держишь Space → мягко выходишь (уносишь ≤ swim_rise_speed).
@@ -238,7 +234,7 @@ func _on_water_entered(area: Area3D) -> void:
 	if area.is_in_group("river"):
 		_river_count += 1
 		_in_river = true
-		_river_center = area.get_meta("river_center", Vector3.ZERO)
+		_river_flow = area.get_meta("flow_dir", Vector3.ZERO)
 
 func _on_water_exited(area: Area3D) -> void:
 	if area.is_in_group("water"):

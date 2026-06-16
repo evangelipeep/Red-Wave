@@ -39,17 +39,35 @@ world_env = NodePath("../WorldEnvironment")
 script = ExtResource("3")
 
 [node name="HypeBoard" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 3, 6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 38)
 script = ExtResource("10")
 
 [node name="NPCManager" type="Node" parent="."]
 script = ExtResource("11")
+npc_count = 10
 
-[node name="SlideRail" parent="." instance=ExtResource("5")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
+[node name="HeartKlyk" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -70, 0, 2)
+slide_id = "klyk"
+
+[node name="HeartPlashch" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58, 0, 2)
+slide_id = "plashch"
+
+[node name="HeartKrylo" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -46, 0, 2)
+slide_id = "krylo"
+
+[node name="SlideDelta" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 58, 0, 0)
+slide_id = "zhalo"
+
+[node name="SlideZero" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -46)
+slide_id = "ruletka"
 
 [node name="Player" parent="." instance=ExtResource("4")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 14)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 62)
 
 [node name="HUD" parent="." instance=ExtResource("6")]
 
