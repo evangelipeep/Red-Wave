@@ -9,6 +9,8 @@ const EVE_19_FRAC := 10.0 / 12.0   # 19:00 при дне 09:00–21:00
 
 var done: Array = []        # done[i] для main_quest[i]
 var _paid: bool = false
+var personal_done: bool = false
+var _personal_paid: bool = false
 
 # Сырой трекинг за день.
 var _ride_counts: Dictionary = {}
@@ -42,6 +44,8 @@ func _on_run_started() -> void:
 	_dizzy_cleared_in_time = false
 	_weighthi_done = false
 	_paid = false
+	personal_done = false
+	_personal_paid = false
 	done.clear()
 	done.resize(RunState.main_quest.size())
 	for i in done.size():
@@ -89,11 +93,32 @@ func _reevaluate(can_pay: bool) -> void:
 		RunState.add_score(GameConstants.MAIN_PAYOUT)
 		EventBus.toast.emit("Главный квест выполнен! +%d очков" % GameConstants.MAIN_PAYOUT)
 
-# Прогресс атома (текущее, нужно) — для карточек «2/5».
+	# Личное доп-задание.
+	if not RunState.personal_quest.is_empty():
+		var pd := _evaluate(RunState.personal_quest[0])
+		if pd and not personal_done:
+			EventBus.quest_progress.emit(Net.local_id(), str(RunState.personal_quest[0].get("name", "")), true)
+		personal_done = pd
+		if pd and can_pay and not _personal_paid:
+			_personal_paid = true
+			RunState.add_score(GameConstants.PERSONAL_PTS)
+			EventBus.toast.emit("Личное задание выполнено! +%d очков" % GameConstants.PERSONAL_PTS)
+
+# Прогресс атома главного квеста (текущее, нужно) — для карточек «2/5».
 func progress(i: int) -> Vector2i:
 	if i < 0 or i >= RunState.main_quest.size():
 		return Vector2i(0, 1)
-	var a: Dictionary = RunState.main_quest[i]
+	return _progress_atom(RunState.main_quest[i])
+
+func personal_progress() -> Vector2i:
+	if RunState.personal_quest.is_empty():
+		return Vector2i(0, 1)
+	return _progress_atom(RunState.personal_quest[0])
+
+func personal_is_done() -> bool:
+	return personal_done
+
+func _progress_atom(a: Dictionary) -> Vector2i:
 	var axis := str(a.get("axis", ""))
 	var n := int(a.get("n", 1))
 	match axis:
@@ -119,7 +144,7 @@ func progress(i: int) -> Vector2i:
 		"food":
 			return Vector2i(mini(_eaten_zones.size(), 3), 3)
 		_:
-			return Vector2i(1 if is_done(i) else 0, 1)
+			return Vector2i(1 if _evaluate(a) else 0, 1)
 
 func _zone_ridden_count(zone: String) -> int:
 	var c := 0

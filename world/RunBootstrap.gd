@@ -17,6 +17,7 @@ func _ready() -> void:
 	RunState.coins = 30   # DEBUG: больше монет, чтобы можно было переесть до лока ≥91 кг
 	Hype.roll()
 	RunState.main_quest = QuestGenerator.generate_main()
+	RunState.personal_quest = QuestGenerator.generate_personal()
 	print("[Run] горка дня = %s, день = %.0f сек, атомов в квесте = %d" % [
 		Hype.day_slide, debug_run_length, RunState.main_quest.size()])
 	EventBus.scheduled_event.connect(_on_scheduled)

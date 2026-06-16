@@ -35,6 +35,9 @@ func _format() -> String:
 		var a: Dictionary = RunState.main_quest[i]
 		var mark := "✓" if QuestTracker.is_done(i) else "✗"
 		s += "   %s %s\n" % [mark, str(a.get("name", "?"))]
+	if not RunState.personal_quest.is_empty():
+		var pm := "✓" if QuestTracker.personal_is_done() else "✗"
+		s += "\n★ Личное: %s %s\n" % [pm, str(RunState.personal_quest[0].get("name", "?"))]
 	s += "\nОЧКИ ЗА ДЕНЬ: %d\n\n" % RunState.score
 	s += "Enter — заново"
 	return s

@@ -39,4 +39,7 @@ func _format_quest() -> String:
 	for a in RunState.main_quest:
 		s += "   • %s\n" % str(a.get("name", "?"))
 	s += "\nЗа выполнение: +%d очков." % GameConstants.MAIN_PAYOUT
+	if not RunState.personal_quest.is_empty():
+		s += "\n\n★ Личное: %s  (+%d)" % [
+			str(RunState.personal_quest[0].get("name", "?")), GameConstants.PERSONAL_PTS]
 	return s

@@ -8,6 +8,7 @@ var coins: int = 0
 var dizziness: int = 0
 var current_zone: String = ""        # в какой зоне игрок ("" = центр/мост)
 var main_quest: Array = []           # бандл атомов главного квеста (QuestGenerator)
+var personal_quest: Array = []       # личное доп-задание (1 атом)
 var rides_total: int = 0             # сколько горок проехал (прокси-прогресс, фаза 1)
 var dizziness_peak: int = 0          # пик головокружения за день (для финала)
 var score: int = 0                   # очки за день
@@ -34,6 +35,7 @@ func reset() -> void:
 	score = 0
 	markers.clear()
 	pings.clear()
+	personal_quest.clear()
 	_zones_visited.clear()
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 	EventBus.score_changed.emit(Net.local_id(), score)

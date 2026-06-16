@@ -151,3 +151,15 @@ func _load_fallback() -> Array:
 	if data == null or data.is_empty():
 		return []
 	return data[randi() % data.size()]
+
+## Личное доп-задание: один лёгкий, отслеживаемый атом (PERSONAL_PTS за выполнение).
+func generate_personal() -> Array:
+	var trackable := ["extreme", "sens", "temp", "gul", "calm", "diffsens", "food",
+		"weightlow", "weighthi", "dizzy", "perzone"]
+	var pool: Array = []
+	for a in _build_atoms():
+		if a.get("axis", "") in trackable and float(a.get("ep", 0.0)) <= 4.0:
+			pool.append(a)
+	if pool.is_empty():
+		return []
+	return [pool[randi() % pool.size()]]
