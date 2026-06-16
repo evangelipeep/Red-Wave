@@ -15,6 +15,10 @@ offset_bottom = 220.0
 [node name="Time" type="Label" parent="VBox"]
 text = "09:00   (утро)"
 
+[node name="Objective" type="Label" parent="VBox"]
+modulate = Color(1, 0.92, 0.5, 1)
+text = "Цель: —"
+
 [node name="Calories" type="Label" parent="VBox"]
 text = "Сожжено: 0 ккал"
 

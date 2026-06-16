@@ -4,6 +4,7 @@ extends CanvasLayer
 ## статус туалета. Плюс всплывающие тосты (EventBus.toast).
 
 @onready var _time: Label = $VBox/Time
+@onready var _objective: Label = $VBox/Objective
 @onready var _cal: Label = $VBox/Calories
 @onready var _weight: Label = $VBox/Weight
 @onready var _coins: Label = $VBox/Coins
@@ -34,6 +35,7 @@ func _on_queue(_slide_id: String, ahead: float, active: bool) -> void:
 
 func _process(delta: float) -> void:
 	_time.text = "%s   (%s)" % [Clock.game_time_string(), _phase_ru(Clock.phase())]
+	_objective.text = _objective_text()
 	_cal.text = "Сожжено: %.0f ккал" % WeightSystem.calories_burned
 	# Точный вес скрыт — только состояние (число узнаёшь на весах).
 	_weight.text = "Состояние: %s   (к −1кг %.0f%%)" % [
@@ -61,6 +63,21 @@ func _process(delta: float) -> void:
 func _on_toast(message: String) -> void:
 	_toast.text = message
 	_toast_time = 3.0
+
+func _objective_text() -> String:
+	var total := RunState.main_quest.size()
+	if total == 0:
+		return ""
+	var done := 0
+	var todo := ""
+	for i in total:
+		if QuestTracker.is_done(i):
+			done += 1
+		elif todo == "":
+			todo = str((RunState.main_quest[i] as Dictionary).get("name", "?"))
+	if todo == "":
+		todo = "всё выполнено ✓"
+	return "Цель (%d/%d): %s" % [done, total, todo]
 
 func _weight_band() -> String:
 	if not WeightSystem.can_ride_extreme():
