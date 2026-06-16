@@ -14,6 +14,7 @@ var state: int = St.WANDER
 var ride_t: float = 0.0
 var _target: Vector3 = Vector3.ZERO
 var _wander_timer: float = 0.0
+var _stuck_t: float = 0.0
 var _grav: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
 var _col: CollisionShape3D
 
@@ -48,14 +49,18 @@ func _physics_process(delta: float) -> void:
 		St.RIDING, St.EXIT:
 			return   # позицию задаёт SlideRail (коллизия выключена)
 		St.GO_QUEUE:
-			_step(slide.queue_back_position(), delta)
-			if _near(slide.queue_back_position()):
+			var qb := slide.queue_back_position()
+			_step(qb, delta)
+			_antistuck(qb, delta)
+			if _near(qb):
 				slide.join_queue(self)
 				state = St.IN_QUEUE
 		St.IN_QUEUE:
+			# Стоять за впереди стоящим — это нормально (без антистака).
 			_step(slide.slot_position(slide.queue_index(self)), delta)
 		St.WANDER:
 			_step(_target, delta)
+			_antistuck(_target, delta)
 			_wander_timer -= delta
 			if _near(_target) or _wander_timer <= 0.0:
 				_go_queue()
@@ -74,6 +79,17 @@ func _step(target: Vector3, delta: float) -> void:
 
 func _near(target: Vector3) -> bool:
 	return Vector2(target.x - global_position.x, target.z - global_position.z).length() < 0.85
+
+# Аварийное освобождение, если NPC упёрся в геометрию и не двигается.
+func _antistuck(target: Vector3, delta: float) -> void:
+	var rv := get_real_velocity()
+	if Vector2(rv.x, rv.z).length() < 0.3 and not _near(target):
+		_stuck_t += delta
+		if _stuck_t > 4.0:
+			global_position = Vector3(target.x, global_position.y, target.z)
+			_stuck_t = 0.0
+	else:
+		_stuck_t = 0.0
 
 func _go_queue() -> void:
 	state = St.GO_QUEUE
