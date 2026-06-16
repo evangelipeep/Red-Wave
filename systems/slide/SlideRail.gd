@@ -72,10 +72,9 @@ func _setup_path() -> void:
 		_build_demo_curve(_path.curve)
 
 func _build_demo_curve(c: Curve3D) -> void:
-	# Посадка у земли → лифт вверх на горку → спуск с виражом в яму-бассейн.
+	# Простой ПРЯМОЙ скат с земли в яму-бассейн (без виражей — труба совпадает с катанием).
 	var pts := [
-		Vector3(0, 0.8, 5), Vector3(0, 3.5, 1), Vector3(0, 6.2, -3),
-		Vector3(2.0, 3.0, -7), Vector3(0, -2.0, -11), Vector3(0, -5.3, -15),
+		Vector3(0, 1.0, 6), Vector3(0, -0.5, 1), Vector3(0, -3.0, -6), Vector3(0, -5.3, -12),
 	]
 	for p in pts:
 		c.add_point(p)
@@ -364,7 +363,7 @@ func _drive_player(delta: float) -> void:
 	var fwd := -_follow.global_transform.basis.z
 	var slope := -fwd.y
 	_speed += (_gravity * slope - drag * _speed) * delta
-	_speed = clampf(_speed, 3.0, max_speed)   # мин. ход — чтобы заезжать на лифт-подъём
+	_speed = clampf(_speed, 1.0, max_speed)
 	var eff := _speed * WeightSystem.speed_factor()
 	_follow.progress += eff * delta
 	_rider.ride_to(_follow.global_transform, clampf(eff / max_speed, 0.0, 1.0), delta)
