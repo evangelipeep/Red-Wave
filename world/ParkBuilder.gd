@@ -23,6 +23,13 @@ func _ready() -> void:
 		_build_label(z["name"], z["pos"] + Vector3(0, 5, 0), z["col"])
 		_build_bridge(z["pos"])
 	_build_river()
+	_build_weigh(Vector3(9, 0, 8))
+	_build_weigh(Vector3(-9, 0, 8))
+
+func _build_weigh(pos: Vector3) -> void:
+	var w := WeighStation.new()
+	w.position = pos
+	add_child(w)
 
 func _mat(c: Color, transparent := false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()

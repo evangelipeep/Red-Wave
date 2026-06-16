@@ -76,6 +76,13 @@ func _draw() -> void:
 	for pg in RunState.pings:
 		draw_circle(world_to_map(pg["pos"]), 5.0, Color(0.4, 0.9, 1.0, 0.9))
 
+	# Пункты взвешивания.
+	for w in get_tree().get_nodes_in_group("poi_weigh"):
+		var wp := world_to_map((w as Node3D).global_position)
+		draw_rect(Rect2(wp - Vector2(5, 5), Vector2(10, 10)), Color(0.3, 0.9, 0.6))
+		if show_labels:
+			_label(font, wp + Vector2(0, 14), "Весы", Color(0.3, 0.9, 0.6))
+
 	var players := get_tree().get_nodes_in_group("player")
 	if not players.is_empty():
 		var pl := players[0] as Node3D
