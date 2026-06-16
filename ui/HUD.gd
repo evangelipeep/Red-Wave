@@ -35,9 +35,9 @@ func _on_queue(_slide_id: String, ahead: float, active: bool) -> void:
 func _process(delta: float) -> void:
 	_time.text = "%s   (%s)" % [Clock.game_time_string(), _phase_ru(Clock.phase())]
 	_cal.text = "Сожжено: %.0f ккал" % WeightSystem.calories_burned
-	var lock := "  ⛔экстрим" if not WeightSystem.can_ride_extreme() else ""
-	_weight.text = "Вес (отладка): %.1f кг   к −1кг %.0f%%%s" % [
-		WeightSystem.kg, WeightSystem.burn_progress() * 100.0, lock]
+	# Точный вес скрыт — только состояние (число узнаёшь на весах).
+	_weight.text = "Состояние: %s   (к −1кг %.0f%%)" % [
+		_weight_band(), WeightSystem.burn_progress() * 100.0]
 	_coins.text = "Монеты: %d" % RunState.coins
 	_score.text = "Очки: %d" % RunState.score
 	_dizzy.text = "Голова: %d/%d" % [RunState.dizziness, GameConstants.DIZZY_MAX]
@@ -56,6 +56,15 @@ func _process(delta: float) -> void:
 func _on_toast(message: String) -> void:
 	_toast.text = message
 	_toast_time = 3.0
+
+func _weight_band() -> String:
+	if not WeightSystem.can_ride_extreme():
+		return "⛔ перебор — на экстрим не пустят"
+	if WeightSystem.kg >= 88.0:
+		return "тяжеловато"
+	if WeightSystem.kg <= 73.0:
+		return "налегке"
+	return "в норме"
 
 func _zone_ru(z: String) -> String:
 	match z:

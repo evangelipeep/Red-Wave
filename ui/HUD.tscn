@@ -19,7 +19,7 @@ text = "09:00   (утро)"
 text = "Сожжено: 0 ккал"
 
 [node name="Weight" type="Label" parent="VBox"]
-text = "Вес (отладка): 80.0 кг"
+text = "Состояние: в норме"
 
 [node name="Coins" type="Label" parent="VBox"]
 text = "Монеты: 10"
