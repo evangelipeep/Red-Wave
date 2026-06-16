@@ -4,7 +4,7 @@ extends Node
 ## завершении. Оценивает то, что уже есть (горки, вес, голова, еда, театры/шоу);
 ## атомы систем «в разработке» (лавки/гонки/очереди/круги) пока авто-зачёт.
 
-const AUTO_AXES := ["bard", "shop", "race", "skip", "laps"]
+const AUTO_AXES := ["bard", "race", "skip", "laps"]
 const EVE_19_FRAC := 10.0 / 12.0   # 19:00 при дне 09:00–21:00
 const SHOW_WINDOW := 20.0          # сек, сколько идёт шоу после старта
 
@@ -172,6 +172,8 @@ func _progress_atom(a: Dictionary) -> Vector2i:
 			return Vector2i(_zone_ridden_count(z), Slides.in_zone(z).size())
 		"food":
 			return Vector2i(mini(_eaten_zones.size(), 3), 3)
+		"shop":
+			return Vector2i(mini(RunState.souvenirs.size(), 3), 3)
 		"shows":
 			return Vector2i(mini(_shows_attended, n), n)
 		_:
@@ -211,6 +213,8 @@ func _evaluate(atom: Dictionary) -> bool:
 			return _distinct_sensations() >= n
 		"food":
 			return _eaten_zones.size() >= 3
+		"shop":
+			return RunState.souvenirs.size() >= 3
 		"shows":
 			return _shows_attended >= n
 		"weightlow":

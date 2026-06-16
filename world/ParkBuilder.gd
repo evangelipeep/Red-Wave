@@ -22,7 +22,13 @@ const FOUNDATIONS := [
 	{"name": "Рулетка",  "pos": Vector3(-26, 0, -58), "r": 9.0},
 	{"name": "Рой",      "pos": Vector3(42, 0, -52),  "r": 9.0},
 	{"name": "Комар",    "pos": Vector3(80, 0, -22),  "r": 9.0},
-	{"name": "Магазин",  "pos": Vector3(-72, 0, 52),  "r": 7.0},
+]
+
+# Лавки сувениров — по одной у каждой зоны (сувенир из 3 → квест).
+const SHOPS := [
+	{"id": "shop_klyk",  "pos": Vector3(-40, 0, 14)},
+	{"id": "shop_delta", "pos": Vector3(40, 0, 14)},
+	{"id": "shop_zero",  "pos": Vector3(-10, 0, -38)},
 ]
 
 func _ready() -> void:
@@ -39,9 +45,17 @@ func _ready() -> void:
 		_build_label(z["name"], z["pos"] + Vector3(0, 7, 0), z["col"])
 	for f in FOUNDATIONS:
 		_build_foundation(f["name"], f["pos"], f["r"])
+	for s in SHOPS:
+		_build_shop(s["id"], s["pos"])
 	_build_weigh(Vector3(14, 0, 40))
 	_build_weigh(Vector3(-14, 0, 40))
 	_build_theater(Vector3(0, 0, -8))
+
+func _build_shop(shop_id: String, pos: Vector3) -> void:
+	var s := ShopPOI.new()
+	s.shop_id = shop_id
+	s.position = pos
+	add_child(s)
 
 func _mat(c: Color, transparent := false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
