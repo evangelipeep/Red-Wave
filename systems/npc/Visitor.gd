@@ -9,6 +9,7 @@ var _target: Vector3 = Vector3.ZERO
 var _retarget_t: float = 0.0
 var _stuck_t: float = 0.0
 var _grav: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
+var _nav: NavigationAgent3D
 
 func _ready() -> void:
 	var cap := CapsuleShape3D.new()
@@ -28,6 +29,11 @@ func _ready() -> void:
 	mesh.material_override = mat
 	mesh.position = Vector3(0, 0.9, 0)
 	add_child(mesh)
+	_nav = NavigationAgent3D.new()
+	_nav.path_desired_distance = 0.6
+	_nav.target_desired_distance = 0.6
+	_nav.avoidance_enabled = false
+	add_child(_nav)
 	global_position = _rand_point()
 	_pick()
 
@@ -40,8 +46,11 @@ func _pick() -> void:
 	_stuck_t = 0.0
 
 func _physics_process(delta: float) -> void:
-	var flat := Vector3(_target.x - global_position.x, 0.0, _target.z - global_position.z)
-	if flat.length() > 1.0:
+	_nav.target_position = _target
+	var next := _nav.get_next_path_position()
+	var flat := Vector3(next.x - global_position.x, 0.0, next.z - global_position.z)
+	var to_target := Vector3(_target.x - global_position.x, 0.0, _target.z - global_position.z)
+	if flat.length() > 0.4:
 		var dir := flat.normalized()
 		velocity.x = dir.x * speed
 		velocity.z = dir.z * speed
@@ -53,11 +62,11 @@ func _physics_process(delta: float) -> void:
 
 	_retarget_t -= delta
 	var rv := get_real_velocity()
-	if Vector2(rv.x, rv.z).length() < 0.3 and flat.length() > 1.5:
+	if Vector2(rv.x, rv.z).length() < 0.3 and to_target.length() > 1.5:
 		_stuck_t += delta
 	else:
 		_stuck_t = 0.0
-	if _retarget_t <= 0.0 or flat.length() <= 1.0:
+	if _retarget_t <= 0.0 or to_target.length() <= 1.0:
 		_pick()
 	elif _stuck_t > 4.0:
 		global_position = Vector3(_target.x, global_position.y, _target.z)  # аварийно

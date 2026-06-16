@@ -24,6 +24,7 @@ var _loiter_t: float = 0.0
 var _stuck_t: float = 0.0
 var _grav: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
 var _col: CollisionShape3D
+var _nav: NavigationAgent3D
 
 func _ready() -> void:
 	var cap := CapsuleShape3D.new()
@@ -43,6 +44,11 @@ func _ready() -> void:
 	mesh.material_override = mat
 	mesh.position = Vector3(0, 0.9, 0)
 	add_child(mesh)
+	_nav = NavigationAgent3D.new()
+	_nav.path_desired_distance = 0.6
+	_nav.target_desired_distance = 0.6
+	_nav.avoidance_enabled = false
+	add_child(_nav)
 
 func setup(b: int) -> void:
 	behavior = b
@@ -98,8 +104,11 @@ func _physics_process(delta: float) -> void:
 				_decide_next()
 
 func _step(target: Vector3, delta: float) -> void:
-	var flat := Vector3(target.x - global_position.x, 0.0, target.z - global_position.z)
-	if flat.length() > 0.5:
+	# Идём по навмешу (обход препятствий); без навмеша агент вернёт прямую к цели.
+	_nav.target_position = target
+	var next := _nav.get_next_path_position()
+	var flat := Vector3(next.x - global_position.x, 0.0, next.z - global_position.z)
+	if flat.length() > 0.3:
 		var dir := flat.normalized()
 		velocity.x = dir.x * speed
 		velocity.z = dir.z * speed

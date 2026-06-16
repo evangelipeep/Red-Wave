@@ -141,6 +141,7 @@ func _build_boarding() -> void:
 	plat.use_collision = true
 	plat.position = Vector3(_top_local.x, _top_local.y - 0.2, _top_local.z + 4.0)
 	plat.material = _make_material(Color(0.55, 0.55, 0.62), false)
+	plat.add_to_group("navsource")
 	add_child(plat)
 
 	# Пандус-лестница с земли на платформу (проходимая коллизия + визуальные ступени).
@@ -152,6 +153,7 @@ func _build_boarding() -> void:
 	ramp.use_collision = true
 	ramp.material = _make_material(Color(0.6, 0.55, 0.5), false)
 	ramp.transform = Transform3D(Basis.looking_at((top - base).normalized(), Vector3.UP), (base + top) * 0.5)
+	ramp.add_to_group("navsource")
 	add_child(ramp)
 	var steps := 9
 	for i in range(steps):
@@ -202,6 +204,7 @@ func _build_visuals() -> void:
 	tube.path_interval = 1.0
 	tube.smooth_faces = true
 	tube.use_collision = true
+	tube.add_to_group("navsource")   # труба — препятствие для навмеша
 	add_child(tube)
 	tube.path_node = tube.get_path_to(_path)
 	tube.material = _make_material(Color(0.2, 0.55, 0.95), false)   # непрозрачная — горку видно
@@ -243,6 +246,7 @@ func _build_pool() -> void:
 	basin.size = Vector3(_pool_radius * 2 + 4, 0.4, _pool_radius * 2 + 4)
 	basin.use_collision = true
 	basin.position = Vector3(_pool_center.x, _pool_floor_y - 0.2, _pool_center.z)
+	basin.add_to_group("navsource")
 	add_child(basin)
 
 	var water := MeshInstance3D.new()

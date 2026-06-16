@@ -31,9 +31,13 @@ const SHOPS := [
 	{"id": "shop_zero",  "pos": Vector3(-10, 0, -38)},
 ]
 
+var _nav: NavigationRegion3D
+
 func _ready() -> void:
 	_build_ground()
 	_build_walls_and_dome()
+	_setup_nav()
+	EventBus.run_started.connect(_bake_nav)
 	_build_pad(WAVE_POOL, WAVE_RADIUS + 2.0, Color(0.5, 0.2, 0.2))
 	_build_wave_pool()
 	_build_capillary()
@@ -75,7 +79,8 @@ func _build_ground() -> void:
 	var ground := CSGCombiner3D.new()
 	ground.name = "Ground"
 	ground.use_collision = true
-	ground.add_to_group("ground")   # горки сами выкопают ямы под бассейны
+	ground.add_to_group("ground")     # горки сами выкопают ямы под бассейны
+	ground.add_to_group("navsource")  # пол — источник для запекания навмеша
 	add_child(ground)
 	var floor_box := CSGBox3D.new()
 	floor_box.size = Vector3(HALF_X * 2, 14, HALF_Z * 2)
@@ -110,7 +115,32 @@ func _wall(pos: Vector3, size: Vector3, mat: StandardMaterial3D) -> void:
 	w.position = pos
 	w.use_collision = true
 	w.material = mat
+	w.add_to_group("navsource")   # стены — препятствия для навмеша
 	add_child(w)
+
+func _setup_nav() -> void:
+	_nav = NavigationRegion3D.new()
+	_nav.name = "NavRegion"
+	var nm := NavigationMesh.new()
+	nm.cell_size = 0.25
+	nm.cell_height = 0.2
+	nm.agent_radius = 0.5
+	nm.agent_height = 1.8
+	nm.agent_max_slope = 45.0
+	nm.agent_max_climb = 0.5
+	nm.geometry_parsed_geometry_type = NavigationMesh.PARSED_GEOMETRY_STATIC_COLLIDERS
+	nm.geometry_source_geometry_mode = NavigationMesh.SOURCE_GEOMETRY_GROUPS_WITH_CHILDREN
+	nm.geometry_source_group_name = "navsource"
+	_nav.navigation_mesh = nm
+	add_child(_nav)
+
+func _bake_nav() -> void:
+	# Запекаем после старта дня — к этому моменту все горки/препятствия построены.
+	if _nav == null:
+		return
+	_nav.bake_navigation_mesh(false)   # синхронно
+	var polys := _nav.navigation_mesh.get_polygon_count()
+	print("[Nav] навмеш запечён: полигонов = %d" % polys)
 
 func _build_pad(pos: Vector3, r: float, col: Color) -> void:
 	var pad := CSGCylinder3D.new()
