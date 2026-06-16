@@ -131,7 +131,7 @@ func _walk(delta: float) -> void:
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var dir := (transform.basis * Vector3(input.x, 0.0, input.y)).normalized()
 	var moving := input != Vector2.ZERO
-	var sprinting := Input.is_action_pressed("sprint") and moving
+	var sprinting := Input.is_action_pressed("sprint") and moving and not RunState.run_blocked
 	var target_speed := sprint_speed if sprinting else walk_speed
 	var accel := ground_accel if is_on_floor() else air_accel
 

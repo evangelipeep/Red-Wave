@@ -14,6 +14,10 @@ var dizziness_peak: int = 0          # пик головокружения за 
 var score: int = 0                   # очки за день
 var markers: Array[Vector3] = []     # приватные метки игрока (карта M)
 var pings: Array = []                # активные пинги [{pos, until}] для карты/миникарты
+var offenses: int = 0                 # нарушений очереди (прыжки без очереди)
+var run_blocked: bool = false         # бег заблокирован охраной (наказание)
+var queue_jump_banned: bool = false   # после 2 нарушений — прыгать без очереди вообще нельзя
+var _legit_rides_since_block: int = 0
 var _zones_visited: Dictionary = {}  # для бонуса «первопроходец зоны»
 var _dizzy_decay_accum: float = 0.0
 
@@ -36,6 +40,10 @@ func reset() -> void:
 	markers.clear()
 	pings.clear()
 	personal_quest.clear()
+	offenses = 0
+	run_blocked = false
+	queue_jump_banned = false
+	_legit_rides_since_block = 0
 	_zones_visited.clear()
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 	EventBus.score_changed.emit(Net.local_id(), score)
@@ -43,6 +51,32 @@ func reset() -> void:
 func add_score(delta: int) -> void:
 	score += delta
 	EventBus.score_changed.emit(Net.local_id(), score)
+
+# Прыжок без очереди пойман: штраф, блок бега, реакция охраны.
+func register_offense() -> void:
+	offenses += 1
+	add_score(GameConstants.SHAME)
+	run_blocked = true
+	_legit_rides_since_block = 0
+	if offenses >= GameConstants.HOOLIGAN_BAN_AFTER:
+		queue_jump_banned = true
+	EventBus.run_block_changed.emit(true)
+	EventBus.guard_alert.emit(offenses)
+	EventBus.toast.emit("Неуважение к очереди! %d очков. Бег заблокирован — отстойте %d очереди." % [
+		GameConstants.SHAME, GameConstants.QUEUES_TO_RESTORE_RUN])
+
+# Честно отстоял очередь и прокатился — шаг к снятию блокировки бега.
+func register_legit_ride() -> void:
+	if not run_blocked:
+		return
+	_legit_rides_since_block += 1
+	if _legit_rides_since_block >= GameConstants.QUEUES_TO_RESTORE_RUN:
+		run_blocked = false
+		EventBus.run_block_changed.emit(false)
+		EventBus.toast.emit("Вы исправились — бег снова доступен!")
+	else:
+		EventBus.toast.emit("Очередь отстояна честно (%d/%d)" % [
+			_legit_rides_since_block, GameConstants.QUEUES_TO_RESTORE_RUN])
 
 # --- Приватные метки (карта M). ---
 func add_marker(pos: Vector3) -> void:

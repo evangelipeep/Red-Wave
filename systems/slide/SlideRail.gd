@@ -32,6 +32,9 @@ var _player_ref: PlayerController = null
 var _player_ahead: int = 0
 var _player_wait: float = 0.0
 var _player_no_wait: bool = false
+var _player_legit: bool = false
+var _player_turn: bool = false      # очередь подошла (можно идти на посадку легитимно)
+var _player_turn_t: float = 0.0
 var _was_player_next: bool = false
 
 var _occupied: bool = false
@@ -46,6 +49,9 @@ var _pool_floor_y: float = -6.0
 var _pool_surface_y: float = -0.1
 var _light_red: MeshInstance3D
 var _light_green: MeshInstance3D
+var _board_zone: Area3D     # зона посадки (заходишь сюда — едешь)
+const BOARD_OFFSET := Vector3(0, -0.8, 1.0)   # посадка: на 1 м перед устьем трубы, на земле
+const QUEUE_BACK_OFFSET := Vector3(0, 0, 5)   # зона ожидания на 5 м позади устья
 
 func _ready() -> void:
 	add_to_group("slide")
@@ -94,25 +100,41 @@ func _setup_follow() -> void:
 	_path.add_child(_follow)
 
 func _setup_mount() -> void:
+	# Зона ОЖИДАНИЯ (стой здесь, чтобы быть в очереди) — позади посадки.
 	_mount = Area3D.new()
-	_mount.name = "Mount"
+	_mount.name = "QueueZone"
 	var cs := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(4, 3, 4)
+	box.size = Vector3(7, 3, 6)
 	cs.shape = box
 	_mount.add_child(cs)
 	add_child(_mount)
-	_mount.global_position = to_global(_top_local)
+	_mount.global_position = to_global(_top_local + QUEUE_BACK_OFFSET)
 	_mount.body_entered.connect(_on_mount_body_entered)
 	_mount.body_exited.connect(_on_mount_body_exited)
 
+	# Зона ПОСАДКИ (зашёл — поехал) — у самого старта горки.
+	_board_zone = Area3D.new()
+	_board_zone.name = "BoardZone"
+	var bcs := CollisionShape3D.new()
+	var bbox := BoxShape3D.new()
+	bbox.size = Vector3(3, 3, 2.5)
+	bcs.shape = bbox
+	_board_zone.add_child(bcs)
+	add_child(_board_zone)
+	_board_zone.global_position = to_global(_top_local + BOARD_OFFSET)
+	_board_zone.body_entered.connect(_on_board_entered)
+
+func board_point() -> Vector3:
+	return to_global(_top_local + BOARD_OFFSET)
+
 func _build_boarding() -> void:
-	# Площадка посадки на земле (старт сплайна на ней).
+	# Площадка посадки на земле (старт сплайна + зона ожидания на ней).
 	var pad := CSGBox3D.new()
 	pad.name = "Boarding"
-	pad.size = Vector3(5, 1.2, 5)
+	pad.size = Vector3(8, 1.2, 13)
 	pad.use_collision = true
-	pad.position = Vector3(_top_local.x, _top_local.y - 0.6, _top_local.z)
+	pad.position = Vector3(_top_local.x, _top_local.y - 0.6, _top_local.z + 4.0)
 	add_child(pad)
 
 func _make_material(col: Color, transparent: bool) -> StandardMaterial3D:
@@ -170,10 +192,10 @@ func _build_pool() -> void:
 		ground.add_child(pit)
 		pit.global_position = to_global(Vector3(_pool_center.x, -2, _pool_center.z))
 
-	var basin := CSGCylinder3D.new()
+	# Дно — КВАДРАТНОЕ и крупнее ямы, чтобы NPC/игрок не проваливались в углах.
+	var basin := CSGBox3D.new()
 	basin.name = "BasinFloor"
-	basin.radius = _pool_radius
-	basin.height = 0.4
+	basin.size = Vector3(_pool_radius * 2 + 4, 0.4, _pool_radius * 2 + 4)
 	basin.use_collision = true
 	basin.position = Vector3(_pool_center.x, _pool_floor_y - 0.2, _pool_center.z)
 	add_child(basin)
@@ -236,7 +258,7 @@ func _light_sphere(col: Color, local_pos: Vector3) -> MeshInstance3D:
 
 # --- Геометрия для NPC (мир). Очередь на земле, вбок (+X) от посадки. ---
 func slot_position(i: int) -> Vector3:
-	return to_global(Vector3(2.0 + float(i) * 1.3, 0.2, _top_local.z))
+	return to_global(Vector3(2.0 + float(i) * 1.3, 0.2, _top_local.z + QUEUE_BACK_OFFSET.z))
 
 func queue_back_position() -> Vector3:
 	return slot_position(_npc_queue.size())
@@ -283,7 +305,8 @@ func _on_mount_body_entered(body: Node3D) -> void:
 	_player_wait = 0.0
 
 func _on_mount_body_exited(body: Node3D) -> void:
-	if body == _player_ref:
+	# Если очередь подошла — выход к посадке не сбрасывает статус.
+	if body == _player_ref and not _player_turn:
 		_player_waiting = false
 		_player_ref = null
 		EventBus.queue_update.emit(slide_id, 0, false)
@@ -300,6 +323,15 @@ func _physics_process(delta: float) -> void:
 	if _player_waiting:
 		_player_wait += delta
 		EventBus.queue_update.emit(slide_id, _player_ahead, true)
+	# Ход подошёл, но игрок не сел вовремя — теряет очередь.
+	if _player_turn:
+		_player_turn_t -= delta
+		if _player_turn_t <= 0.0:
+			_player_turn = false
+			_player_waiting = false
+			_player_ref = null
+			EventBus.queue_update.emit(slide_id, 0, false)
+			EventBus.toast.emit("Очередь подошла, но вы ушли — встаньте заново")
 
 func _free_occupancy(delta: float) -> void:
 	if not _occupied:
@@ -324,26 +356,51 @@ func _free_occupancy(delta: float) -> void:
 		_occ_player_swam = false
 
 func _dispatch() -> void:
-	if _player_waiting and _player_ahead <= 0:
-		_start_ride_player()
+	# Только NPC: на свой ход передний ИДЁТ к посадке (а не телепортируется).
+	if _npc_queue.is_empty():
 		return
-	if not _npc_queue.is_empty():
-		var front: NPCAgent = _npc_queue[0]
-		if front.state == NPCAgent.St.IN_QUEUE:   # передний поехал, как только слот свободен
-			_npc_queue.pop_front()
-			_npc_rider = front
-			_npc_phase = 0
-			_occupied = true
-			_occupant = front
-			_occupy_t = 0.0
-			front.begin_ride()
-			if _player_waiting:
-				_player_ahead = maxi(_player_ahead - 1, 0)
+	var front: NPCAgent = _npc_queue[0]
+	if front.state == NPCAgent.St.IN_QUEUE:
+		_npc_queue.pop_front()
+		_occupied = true
+		_occupant = front
+		_occupy_t = 0.0
+		_npc_phase = 0
+		front.go_board(board_point())
+		if _player_waiting:
+			_player_ahead = maxi(_player_ahead - 1, 0)
 
-func _start_ride_player() -> void:
-	var p := _player_ref
-	_player_no_wait = _player_wait < 4.0
+# NPC дошёл до посадки — поехал.
+func npc_board(npc) -> void:
+	if _occupant == npc and _npc_rider == null:
+		_npc_rider = npc
+		_npc_phase = 0
+		npc.begin_ride()
+
+# Игрок зашёл в зону посадки — едет (если очередь подошла) или прыгает без очереди.
+func _on_board_entered(body: Node3D) -> void:
+	if not (body is PlayerController):
+		return
+	if _occupied or _rider != null or _npc_rider != null:
+		EventBus.toast.emit("Занято — подождите")
+		return
+	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
+	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
+		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
+		return
+	if _player_turn:
+		_begin_player_ride(body, true)
+	elif RunState.queue_jump_banned:
+		EventBus.toast.emit("Охранник не пускает без очереди! Встаньте в очередь.")
+	else:
+		_begin_player_ride(body, false)
+		RunState.register_offense()
+
+func _begin_player_ride(p: PlayerController, legit: bool) -> void:
+	_player_legit = legit
+	_player_no_wait = legit and _player_wait < 4.0
 	_player_waiting = false
+	_player_turn = false
 	_player_ref = null
 	_occupied = true
 	_occupant = p
@@ -356,7 +413,7 @@ func _start_ride(player: PlayerController) -> void:
 	_rider = player
 	_speed = base_speed
 	_follow.progress = 0.0
-	_mount.monitoring = false
+	_board_zone.monitoring = false
 	player.mount_rail(self)
 
 func _drive_player(delta: float) -> void:
@@ -395,7 +452,9 @@ func _update_light() -> void:
 	if _light_red:
 		_light_red.visible = not player_next
 	if player_next and not _was_player_next:
-		EventBus.toast.emit("Вы следующий — заходите кататься!")
+		_player_turn = true
+		_player_turn_t = 12.0
+		EventBus.toast.emit("🟢 Ваша очередь — подойдите к посадке!")
 	_was_player_next = player_next
 
 func _finish() -> void:
@@ -405,10 +464,13 @@ func _finish() -> void:
 	_speed = 0.0
 	rider.dismount(_follow.global_transform, exit_vel)
 	EventBus.slide_completed.emit(Net.local_id(), slide_id)
-	if _player_no_wait:
-		_player_no_wait = false
-		RunState.add_score(GameConstants.NO_LONG_QUEUE_BONUS)
-		EventBus.toast.emit("Без очереди! +%d" % GameConstants.NO_LONG_QUEUE_BONUS)
+	if _player_legit:
+		_player_legit = false
+		RunState.register_legit_ride()   # честно отстоял очередь
+		if _player_no_wait:
+			_player_no_wait = false
+			RunState.add_score(GameConstants.NO_LONG_QUEUE_BONUS)
+			EventBus.toast.emit("Без очереди! +%d" % GameConstants.NO_LONG_QUEUE_BONUS)
 	await get_tree().create_timer(0.8).timeout
-	if is_instance_valid(_mount):
-		_mount.monitoring = true
+	if is_instance_valid(_board_zone):
+		_board_zone.monitoring = true

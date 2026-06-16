@@ -5,7 +5,7 @@ class_name NPCAgent
 ## вылезти сбоку по лесенке → бродить → снова в очередь. Во время спуска/вылезания
 ## коллизия выключена (едет по сплайну).
 
-enum St { GO_QUEUE, IN_QUEUE, RIDING, EXIT, WANDER }
+enum St { GO_QUEUE, IN_QUEUE, GO_BOARD, RIDING, EXIT, WANDER }
 
 @export var speed: float = 3.5
 
@@ -58,6 +58,11 @@ func _physics_process(delta: float) -> void:
 		St.IN_QUEUE:
 			# Стоять за впереди стоящим — это нормально (без антистака).
 			_step(slide.slot_position(slide.queue_index(self)), delta)
+		St.GO_BOARD:
+			_step(_target, delta)
+			_antistuck(_target, delta)
+			if _near(_target):
+				slide.npc_board(self)
 		St.WANDER:
 			_step(_target, delta)
 			_antistuck(_target, delta)
@@ -101,6 +106,11 @@ func _wander() -> void:
 	_target = slide.wander_point()
 
 # --- Управляется SlideRail. ---
+func go_board(target: Vector3) -> void:
+	state = St.GO_BOARD
+	_target = target
+	_stuck_t = 0.0
+
 func begin_ride() -> void:
 	state = St.RIDING
 	ride_t = 0.0

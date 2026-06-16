@@ -10,6 +10,7 @@ const BALLAD_RADIUS := 13.0   # «красный круг» в центре — 
 
 var _ballad_started: bool = false
 var _ballad_attended: bool = false
+var _guard_spawned: bool = false
 
 func _ready() -> void:
 	GameConstants.run_length = debug_run_length
@@ -22,12 +23,25 @@ func _ready() -> void:
 	print("[Run] горка дня = %s, день = %.0f сек, атомов в квесте = %d" % [
 		Hype.day_slide, debug_run_length, RunState.main_quest.size()])
 	EventBus.scheduled_event.connect(_on_scheduled)
+	EventBus.guard_alert.connect(_on_guard_alert)
 	Clock.day_finished.connect(_on_day_end)
 	if use_planning:
 		EventBus.run_planning_started.emit()   # старт дня запускает PlanningOverlay
 	else:
 		Clock.start_run()
 		EventBus.run_started.emit()
+
+func _on_guard_alert(_level: int) -> void:
+	if _guard_spawned:
+		return
+	_guard_spawned = true
+	var g := Guard.new()
+	get_tree().current_scene.add_child(g)
+	var players := get_tree().get_nodes_in_group("player")
+	if not players.is_empty():
+		var p := players[0] as Node3D
+		g.global_position = p.global_position + Vector3(3, 0, 3)
+	EventBus.toast.emit("За вами теперь следит охрана…")
 
 func _on_scheduled(ev: String) -> void:
 	if ev == "ballad":

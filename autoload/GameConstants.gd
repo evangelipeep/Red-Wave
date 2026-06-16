@@ -67,6 +67,16 @@ const SIDE_FAIL: int = -3
 const NO_LONG_QUEUE_BONUS: int = 2
 const SHAME: int = -2
 const MISS_BALLAD: int = -3
+const SHOW_PTS: int = 4                 # очки за посещение шоу в театре
+
+# --- Очередь / охрана ---
+const HOOLIGAN_BAN_AFTER: int = 2       # после стольких нарушений — бан прыжков без очереди
+const QUEUES_TO_RESTORE_RUN: int = 5    # сколько честных очередей отстоять, чтобы вернуть бег
+const GUARD_FOLLOW_DIST: float = 4.0    # на какой дистанции охранник держится
+
+# --- Театр ---
+const SHOW_OPEN_BEFORE_FRAC: float = 1.0 / 12.0   # открыт за 1 игровой час до шоу
+const SHOW_DURATION_FRAC: float = 0.5 / 12.0      # шоу идёт ~30 игровых минут
 
 # --- Сложный режим ---
 const HARD_MAIN_FAIL: int = -10

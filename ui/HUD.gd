@@ -46,7 +46,12 @@ func _process(delta: float) -> void:
 	else:
 		_toilet.text = "Туалет: через %.1f ч" % WeightSystem.toilet_ready_in_hours()
 	_zone.text = "Зона: %s" % _zone_ru(RunState.current_zone)
-	_queue.text = _queue_text
+	if _queue_text != "":
+		_queue.text = _queue_text
+	elif RunState.run_blocked:
+		_queue.text = "🚫 Бег заблокирован — отстойте очереди честно"
+	else:
+		_queue.text = ""
 
 	if _toast_time > 0.0:
 		_toast_time -= delta
