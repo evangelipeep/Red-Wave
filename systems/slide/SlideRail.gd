@@ -11,7 +11,8 @@ class_name SlideRail
 @export var max_speed: float = 22.0
 @export var drag: float = 0.25
 @export var build_demo_curve: bool = true
-@export var build_access: bool = true
+@export var build_access: bool = true       # строить свой пандус (false — старт на этаже здания)
+@export var top_height: float = 5.0         # высота старта горки (этаж здания)
 @export var is_race: bool = false          # гоночная горка (едет соперник-призрак)
 
 const RACE_GHOST_TIME := 4.0               # за сколько спускается соперник
@@ -82,9 +83,10 @@ func _setup_path() -> void:
 		_build_demo_curve(_path.curve)
 
 func _build_demo_curve(c: Curve3D) -> void:
-	# Старт НАВЕРХУ платформы (y≈5) → прямой спуск в видимый бассейн у земли.
+	# Старт на высоте top_height (этаж) → спуск в видимый бассейн у земли.
+	var h := top_height
 	var pts := [
-		Vector3(0, 5.0, 0), Vector3(0, 3.5, -4), Vector3(0, 1.0, -9), Vector3(0, -1.8, -14),
+		Vector3(0, h, 0), Vector3(0, h * 0.7, -4), Vector3(0, h * 0.22, -9), Vector3(0, -1.8, -14),
 	]
 	for p in pts:
 		c.add_point(p)
