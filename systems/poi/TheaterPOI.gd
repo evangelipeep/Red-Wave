@@ -81,8 +81,9 @@ func _on_enter(b: Node3D) -> void:
 
 func _process(delta: float) -> void:
 	_recalc_phase()
-	# Ворота твёрдые всегда, КРОМЕ фазы "open" (когда можно зайти).
-	var solid := _phase != "open"
+	# Ворота закрыты вне фазы "open", НО не запирают, пока внутри кто-то есть
+	# (закрываются только когда все вышли — иначе не выбраться).
+	var solid := _phase != "open" and not player_inside
 	if _gate.use_collision != solid:
 		_gate.use_collision = solid
 		_gate.visible = solid

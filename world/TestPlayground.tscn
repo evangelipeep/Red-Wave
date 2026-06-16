@@ -41,7 +41,7 @@ size = Vector3(80, 14, 80)
 [node name="SlideRail" parent="." instance=ExtResource("2")]
 
 [node name="Player" parent="." instance=ExtResource("1")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 12.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 20)
 
 [node name="HUD" parent="." instance=ExtResource("5")]
 

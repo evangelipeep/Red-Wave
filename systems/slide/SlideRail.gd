@@ -45,13 +45,13 @@ var _occ_player_swam: bool = false
 var _top_local: Vector3
 var _pool_center: Vector3
 var _pool_radius: float = 4.5
-var _pool_floor_y: float = -6.0
-var _pool_surface_y: float = -0.1
+var _pool_floor_y: float = -3.0
+var _pool_surface_y: float = -0.3
 var _light_red: MeshInstance3D
 var _light_green: MeshInstance3D
 var _board_zone: Area3D     # зона посадки (заходишь сюда — едешь)
-const BOARD_OFFSET := Vector3(0, -0.8, 1.0)   # посадка: на 1 м перед устьем трубы, на земле
-const QUEUE_BACK_OFFSET := Vector3(0, 0, 5)   # зона ожидания на 5 м позади устья
+const BOARD_OFFSET := Vector3(0, 0, 1.5)      # зона ПОСАДКИ на платформе, у устья трубы
+const QUEUE_BACK_OFFSET := Vector3(0, 0, 4.5) # зона ОЖИДАНИЯ на платформе, позади посадки
 
 func _ready() -> void:
 	add_to_group("slide")
@@ -78,9 +78,9 @@ func _setup_path() -> void:
 		_build_demo_curve(_path.curve)
 
 func _build_demo_curve(c: Curve3D) -> void:
-	# Простой ПРЯМОЙ скат с земли в яму-бассейн (без виражей — труба совпадает с катанием).
+	# Старт НАВЕРХУ платформы (y≈5) → прямой спуск в видимый бассейн у земли.
 	var pts := [
-		Vector3(0, 1.0, 6), Vector3(0, -0.5, 1), Vector3(0, -3.0, -6), Vector3(0, -5.3, -12),
+		Vector3(0, 5.0, 0), Vector3(0, 3.5, -4), Vector3(0, 1.0, -9), Vector3(0, -1.8, -14),
 	]
 	for p in pts:
 		c.add_point(p)
@@ -129,13 +129,53 @@ func board_point() -> Vector3:
 	return to_global(_top_local + BOARD_OFFSET)
 
 func _build_boarding() -> void:
-	# Площадка посадки на земле (старт сплайна + зона ожидания на ней).
-	var pad := CSGBox3D.new()
-	pad.name = "Boarding"
-	pad.size = Vector3(8, 1.2, 13)
-	pad.use_collision = true
-	pad.position = Vector3(_top_local.x, _top_local.y - 0.6, _top_local.z + 4.0)
-	add_child(pad)
+	# Платформа наверху (старт сплайна на ней).
+	var plat := CSGBox3D.new()
+	plat.name = "Platform"
+	plat.size = Vector3(10, 0.4, 11)
+	plat.use_collision = true
+	plat.position = Vector3(_top_local.x, _top_local.y - 0.2, _top_local.z + 4.0)
+	plat.material = _make_material(Color(0.55, 0.55, 0.62), false)
+	add_child(plat)
+
+	# Пандус-лестница с земли на платформу (проходимая коллизия + визуальные ступени).
+	var base := Vector3(_top_local.x, 0.0, _top_local.z + 17.0)
+	var top := Vector3(_top_local.x, _top_local.y, _top_local.z + 8.0)
+	var ramp := CSGBox3D.new()
+	ramp.name = "Ramp"
+	ramp.size = Vector3(10, 0.4, base.distance_to(top) + 0.5)
+	ramp.use_collision = true
+	ramp.material = _make_material(Color(0.6, 0.55, 0.5), false)
+	ramp.transform = Transform3D(Basis.looking_at((top - base).normalized(), Vector3.UP), (base + top) * 0.5)
+	add_child(ramp)
+	var steps := 9
+	for i in range(steps):
+		var sp := base.lerp(top, float(i) / float(steps - 1))
+		var st := CSGBox3D.new()
+		st.size = Vector3(10, 0.18, 0.5)
+		st.position = sp + Vector3(0, 0.22, 0)
+		st.material = _make_material(Color(0.48, 0.44, 0.4), false)
+		add_child(st)
+
+	# Маркеры зон: где стоять и где садиться.
+	_zone_marker(_top_local + QUEUE_BACK_OFFSET, Color(0.3, 0.5, 1.0, 0.6), "ОЧЕРЕДЬ")
+	_zone_marker(_top_local + BOARD_OFFSET, Color(0.3, 1.0, 0.4, 0.6), "ПОСАДКА")
+
+func _zone_marker(local_pos: Vector3, col: Color, text: String) -> void:
+	var m := CSGBox3D.new()
+	m.size = Vector3(4.5, 0.12, 2.6)
+	m.position = local_pos + Vector3(0, 0.08, 0)
+	m.material = _make_material(col, true)
+	add_child(m)
+	var label := Label3D.new()
+	label.text = text
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 40
+	label.pixel_size = 0.011
+	label.outline_size = 8
+	label.modulate = col
+	label.position = local_pos + Vector3(0, 1.7, 0)
+	add_child(label)
 
 func _make_material(col: Color, transparent: bool) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -258,7 +298,7 @@ func _light_sphere(col: Color, local_pos: Vector3) -> MeshInstance3D:
 
 # --- Геометрия для NPC (мир). Очередь на земле, вбок (+X) от посадки. ---
 func slot_position(i: int) -> Vector3:
-	return to_global(Vector3(2.0 + float(i) * 1.3, 0.2, _top_local.z + QUEUE_BACK_OFFSET.z))
+	return to_global(Vector3(2.0 + float(i) * 1.3, _top_local.y, _top_local.z + QUEUE_BACK_OFFSET.z))
 
 func queue_back_position() -> Vector3:
 	return slot_position(_npc_queue.size())
@@ -274,7 +314,8 @@ func leave_queue(agent) -> void:
 	_npc_queue.erase(agent)
 
 func wander_point() -> Vector3:
-	return Vector3(randf_range(-18.0, 18.0), 0.2, randf_range(-2.0, 16.0))
+	# Гуляют ПЕРЕД платформой (у пандуса), чтобы потом подняться в очередь.
+	return to_global(Vector3(randf_range(-4.0, 4.0), 0.0, randf_range(11.0, 20.0)))
 
 func _ladder_base_local() -> Vector3:
 	return _pool_center + Vector3(_pool_radius - 0.4, _pool_surface_y, 0)

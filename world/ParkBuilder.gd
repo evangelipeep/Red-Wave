@@ -21,11 +21,10 @@ func _ready() -> void:
 		_build_pad(z["pos"], 9.0, z["col"])
 		_build_zone_area(z["id"], z["pos"])
 		_build_label(z["name"], z["pos"] + Vector3(0, 5, 0), z["col"])
-		_build_bridge(z["pos"])
-	_build_river()
-	_build_weigh(Vector3(9, 0, 8))
-	_build_weigh(Vector3(-9, 0, 8))
-	_build_theater(Vector3(0, 0, 12))
+	# Река-кольцо временно убрана (мешала размещению горки) — вернём при доводке.
+	_build_weigh(Vector3(13, 0, 6))
+	_build_weigh(Vector3(-13, 0, 6))
+	_build_theater(Vector3(-15, 0, -6))
 
 func _build_weigh(pos: Vector3) -> void:
 	var w := WeighStation.new()
