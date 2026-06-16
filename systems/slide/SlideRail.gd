@@ -438,9 +438,16 @@ func _on_board_entered(body: Node3D) -> void:
 	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
 		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
 		return
-	# Твоя очередь? (впереди никого) — едешь честно. Иначе это прыжок без очереди.
+	# Твоя очередь? (впереди никого) — едешь честно.
 	if _player_ahead <= 0:
 		_begin_player_ride(body, true)
+	# Есть Fast Pass — заходишь без очереди легально (без штрафа).
+	elif RunState.fast_passes > 0:
+		RunState.fast_passes -= 1
+		RunState.skips_used += 1
+		EventBus.toast.emit("Fast Pass — без очереди! (осталось %d)" % RunState.fast_passes)
+		_begin_player_ride(body, true)
+	# Иначе прыжок без очереди: штраф (или бан после 2 раз).
 	elif RunState.queue_jump_banned:
 		EventBus.toast.emit("Охранник не пускает без очереди! Встаньте в очередь (впереди %d)." % _player_ahead)
 	else:

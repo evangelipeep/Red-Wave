@@ -17,6 +17,8 @@ var pings: Array = []                # активные пинги [{pos, until}
 var souvenirs: Dictionary = {}       # купленные сувениры по лавкам (shop_id → true)
 var bard_photo: bool = false         # сделал фото с Бардом
 var river_laps: int = 0              # кругов по ленивой реке
+var fast_passes: int = 0            # пропуска «без очереди»
+var skips_used: int = 0             # сколько раз прошёл без очереди по пропуску
 var offenses: int = 0                 # нарушений очереди (прыжки без очереди)
 var run_blocked: bool = false         # бег заблокирован охраной (наказание)
 var queue_jump_banned: bool = false   # после 2 нарушений — прыгать без очереди вообще нельзя
@@ -45,6 +47,8 @@ func reset() -> void:
 	souvenirs.clear()
 	bard_photo = false
 	river_laps = 0
+	fast_passes = 0
+	skips_used = 0
 	personal_quest.clear()
 	offenses = 0
 	run_blocked = false
