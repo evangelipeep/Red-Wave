@@ -4,7 +4,6 @@ extends Node3D
 ## Горка ставится отдельно (сцена), сюда — копаем под её бассейн яму.
 ## NavMesh отложен до NPC (фаза 2): без агентов он невидим.
 
-const SLIDE_PIT_CENTER := Vector3(0, -2, -30)   # под бассейн горки (SlideRail в (0,0,-6))
 const RIVER_RADIUS := 21.0
 const RIVER_SURFACE_Y := -0.3
 
@@ -37,6 +36,7 @@ func _build_ground() -> void:
 	var ground := CSGCombiner3D.new()
 	ground.name = "Ground"
 	ground.use_collision = true
+	ground.add_to_group("ground")   # горки сами выкопают ямы под бассейны
 	add_child(ground)
 
 	var floor_box := CSGBox3D.new()
@@ -44,13 +44,6 @@ func _build_ground() -> void:
 	floor_box.position = Vector3(0, -7, 0)
 	floor_box.material = _mat(Color(0.45, 0.5, 0.42))
 	ground.add_child(floor_box)
-
-	# Яма под бассейн горки.
-	var pit := CSGBox3D.new()
-	pit.size = Vector3(11, 8, 11)
-	pit.position = SLIDE_PIT_CENTER
-	pit.operation = CSGShape3D.OPERATION_SUBTRACTION
-	ground.add_child(pit)
 
 	# Траншея под реку-кольцо.
 	var trench := CSGTorus3D.new()

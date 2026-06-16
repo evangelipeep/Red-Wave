@@ -31,17 +31,12 @@ shadow_enabled = true
 script = ExtResource("4")
 world_env = NodePath("../WorldEnvironment")
 
-[node name="Ground" type="CSGCombiner3D" parent="."]
+[node name="Ground" type="CSGCombiner3D" parent="." groups=["ground"]]
 use_collision = true
 
 [node name="Floor" type="CSGBox3D" parent="Ground"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -7, 0)
 size = Vector3(80, 14, 80)
-
-[node name="Pit" type="CSGBox3D" parent="Ground"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2, -24)
-operation = 2
-size = Vector3(11, 8, 11)
 
 [node name="SlideRail" parent="." instance=ExtResource("2")]
 

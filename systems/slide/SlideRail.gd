@@ -1,9 +1,10 @@
 extends Node3D
 class_name SlideRail
-## Горка с ЖИВОЙ очередью. Слот «занят» весь цикл ездока: следующий стартует только
-## когда предыдущий скатился И вылез из бассейна (NPC доходит до WANDER, игрок выплыл).
-## Игрок учитывается честно: при входе в очередь запоминаем, сколько NPC впереди;
-## новые NPC встают позади. Светофор: зелёный = твоя очередь. NPC выходят сбоку.
+## Горка с НАЗЕМНЫМ стартом: посадка на земле → спуск по сплайну вниз в бассейн-яму.
+## Никакой лестницы наверх — нет телепорта, спуск совпадает с местом посадки.
+## Очередь на земле: NPC (с коллизией) и игрок стоят в линию; кто впереди и слот
+## свободен — тот едет. Слот занят весь цикл (пока предыдущий не вылез из бассейна).
+## Яму под бассейн горка копает сама в общем полу (узел в группе "ground").
 
 @export var slide_id: String = "klyk"
 @export var base_speed: float = 6.0
@@ -13,25 +14,27 @@ class_name SlideRail
 @export var build_access: bool = true
 
 const NPC_RIDE_DURATION := 3.0
-const OCCUPY_TIMEOUT := 9.0   # страховка: освободить слот, даже если ездок «завис»
+const NPC_EXIT_DURATION := 1.5
+const OCCUPY_TIMEOUT := 10.0
 
 var _path: Path3D
 var _follow: PathFollow3D
 var _mount: Area3D
 var _rider: PlayerController = null
 var _npc_rider: NPCAgent = null
+var _npc_phase: int = 0          # 0 — спуск, 1 — вылезание по лесенке
 var _speed: float = 0.0
-var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
+var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
 
-var _npc_queue: Array = []          # только NPC, по порядку
+var _npc_queue: Array = []
 var _player_waiting: bool = false
 var _player_ref: PlayerController = null
-var _player_ahead: int = 0          # сколько NPC впереди игрока (снимок при входе)
+var _player_ahead: int = 0
 var _player_wait: float = 0.0
 var _player_no_wait: bool = false
 var _was_player_next: bool = false
 
-var _occupied: bool = false         # слот занят (ездок не вылез из бассейна)
+var _occupied: bool = false
 var _occupant: Object = null
 var _occupy_t: float = 0.0
 var _occ_player_swam: bool = false
@@ -48,14 +51,14 @@ func _ready() -> void:
 	add_to_group("slide")
 	_setup_path()
 	_setup_follow()
-	_setup_mount()
 	_top_local = _path.curve.get_point_position(0)
+	_setup_mount()
 	_build_visuals()
 	_build_pool()
 	_build_ladder()
 	_build_light()
 	if build_access and build_demo_curve:
-		_build_access_stairs(_top_local)
+		_build_boarding()
 
 func _setup_path() -> void:
 	_path = get_node_or_null("Path") as Path3D
@@ -69,9 +72,10 @@ func _setup_path() -> void:
 		_build_demo_curve(_path.curve)
 
 func _build_demo_curve(c: Curve3D) -> void:
+	# Старт у земли (y≈0.6) → плавный спуск в яму-бассейн.
 	var pts := [
-		Vector3(0, 4.5, 0), Vector3(0, 3.6, -5), Vector3(2.5, 2.6, -9),
-		Vector3(2.5, 1.6, -13), Vector3(-1, 0.8, -17), Vector3(0, 0.3, -21),
+		Vector3(0, 0.6, 4), Vector3(0, 0.2, 0), Vector3(1.4, -1.6, -4),
+		Vector3(0, -3.6, -8), Vector3(0, -5.3, -11),
 	]
 	for p in pts:
 		c.add_point(p)
@@ -99,27 +103,18 @@ func _setup_mount() -> void:
 	cs.shape = box
 	_mount.add_child(cs)
 	add_child(_mount)
-	_mount.global_position = _path.to_global(_path.curve.get_point_position(0))
+	_mount.global_position = to_global(_top_local)
 	_mount.body_entered.connect(_on_mount_body_entered)
 	_mount.body_exited.connect(_on_mount_body_exited)
 
-func _build_access_stairs(top: Vector3) -> void:
-	var steps := 10
-	for i in range(steps):
-		var f := float(i) / float(steps - 1)
-		var step := CSGBox3D.new()
-		step.size = Vector3(3, 0.4, 1.2)
-		step.use_collision = true
-		step.position = Vector3(top.x, top.y * f - 0.2, top.z + float(steps - i) * 1.2)
-		add_child(step)
-	# Площадка на самом верху: стыкуется с лестницей (край z=1.2) и тянется вбок (+X)
-	# под очередь. НЕ заходит на ступени, иначе игрок упирается в неё снизу.
-	var plat := CSGBox3D.new()
-	plat.name = "TopPlatform"
-	plat.size = Vector3(16, 0.4, 4.2)
-	plat.use_collision = true
-	plat.position = Vector3(top.x + 6.0, top.y - 0.2, top.z - 0.9)
-	add_child(plat)
+func _build_boarding() -> void:
+	# Площадка посадки на земле (старт сплайна на ней).
+	var pad := CSGBox3D.new()
+	pad.name = "Boarding"
+	pad.size = Vector3(5, 1.2, 5)
+	pad.use_collision = true
+	pad.position = Vector3(_top_local.x, _top_local.y - 0.6, _top_local.z)
+	add_child(pad)
 
 func _make_material(col: Color, transparent: bool) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -165,7 +160,16 @@ func _build_visuals() -> void:
 
 func _build_pool() -> void:
 	var end := _path.curve.get_point_position(_path.curve.point_count - 1)
-	_pool_center = Vector3(end.x, 0, end.z - 3)
+	_pool_center = Vector3(end.x, 0, end.z - 2)
+
+	# Копаем яму в общем полу (узел группы "ground"), если он есть.
+	var ground := get_tree().get_first_node_in_group("ground")
+	if ground != null:
+		var pit := CSGBox3D.new()
+		pit.operation = CSGShape3D.OPERATION_SUBTRACTION
+		pit.size = Vector3(_pool_radius * 2 + 2, 8, _pool_radius * 2 + 2)
+		ground.add_child(pit)
+		pit.global_position = to_global(Vector3(_pool_center.x, -2, _pool_center.z))
 
 	var basin := CSGCylinder3D.new()
 	basin.name = "BasinFloor"
@@ -199,7 +203,6 @@ func _build_pool() -> void:
 	add_child(area)
 
 func _build_ladder() -> void:
-	# Лесенка СБОКУ бассейна (+X) — NPC всегда выходят сбоку.
 	var base := _ladder_base_local()
 	var top := _ladder_top_local()
 	var ramp := CSGBox3D.new()
@@ -212,7 +215,7 @@ func _build_ladder() -> void:
 	add_child(ramp)
 
 func _build_light() -> void:
-	var post_local := _top_local + Vector3(-2.4, 1.4, -0.5)
+	var post_local := _top_local + Vector3(-3.0, 1.0, 0)
 	_light_red = _light_sphere(Color(1, 0.1, 0.1), post_local + Vector3(0, 0.35, 0))
 	_light_green = _light_sphere(Color(0.1, 1, 0.2), post_local)
 	_light_green.visible = false
@@ -232,10 +235,9 @@ func _light_sphere(col: Color, local_pos: Vector3) -> MeshInstance3D:
 	add_child(m)
 	return m
 
-# --- Геометрия для NPC (мировые координаты). Очередь по центру, за стартом. ---
+# --- Геометрия для NPC (мир). Очередь на земле, вбок (+X) от посадки. ---
 func slot_position(i: int) -> Vector3:
-	# Очередь уходит вбок (+X) по площадке, фронт у старта.
-	return to_global(_top_local + Vector3(1.6 + float(i) * 1.3, 0, 0))
+	return to_global(Vector3(2.0 + float(i) * 1.3, 0.2, _top_local.z))
 
 func queue_back_position() -> Vector3:
 	return slot_position(_npc_queue.size())
@@ -251,16 +253,13 @@ func leave_queue(agent) -> void:
 	_npc_queue.erase(agent)
 
 func wander_point() -> Vector3:
-	return Vector3(randf_range(-20.0, 20.0), 0.2, randf_range(-8.0, 16.0))
+	return Vector3(randf_range(-18.0, 18.0), 0.2, randf_range(-2.0, 16.0))
 
 func _ladder_base_local() -> Vector3:
 	return _pool_center + Vector3(_pool_radius - 0.4, _pool_surface_y, 0)
 
 func _ladder_top_local() -> Vector3:
 	return _pool_center + Vector3(_pool_radius + 0.9, 0.4, 0)
-
-func ladder_base() -> Vector3:
-	return to_global(_ladder_base_local())
 
 func ladder_top() -> Vector3:
 	return to_global(_ladder_top_local())
@@ -269,7 +268,7 @@ func ride_point(t: float) -> Vector3:
 	var baked_len := _path.curve.get_baked_length()
 	return _path.to_global(_path.curve.sample_baked(clampf(t, 0.0, 1.0) * baked_len))
 
-# --- Игрок входит/выходит из очереди. ---
+# --- Игрок входит/выходит из очереди (зона посадки на земле). ---
 func _on_mount_body_entered(body: Node3D) -> void:
 	if not (body is PlayerController):
 		return
@@ -281,7 +280,7 @@ func _on_mount_body_entered(body: Node3D) -> void:
 		return
 	_player_waiting = true
 	_player_ref = body
-	_player_ahead = _npc_queue.size()   # снимок: новые NPC встанут позади
+	_player_ahead = _npc_queue.size()
 	_player_wait = 0.0
 
 func _on_mount_body_exited(body: Node3D) -> void:
@@ -310,14 +309,14 @@ func _free_occupancy(delta: float) -> void:
 	var done := false
 	if _occupant is NPCAgent:
 		if (_occupant as NPCAgent).state == NPCAgent.St.WANDER:
-			done = true   # NPC вылез из бассейна и пошёл бродить
+			done = true
 	elif _occupant is PlayerController:
 		if _rider == null:
 			var pl := _occupant as PlayerController
 			if pl.swimming:
 				_occ_player_swam = true
 			elif _occ_player_swam:
-				done = true   # игрок выплыл из бассейна
+				done = true
 	if _occupy_t > OCCUPY_TIMEOUT:
 		done = true
 	if done:
@@ -326,16 +325,16 @@ func _free_occupancy(delta: float) -> void:
 		_occ_player_swam = false
 
 func _dispatch() -> void:
-	# Приоритет игроку, когда впереди никого не осталось.
 	if _player_waiting and _player_ahead <= 0:
 		_start_ride_player()
 		return
 	if not _npc_queue.is_empty():
 		var front: NPCAgent = _npc_queue[0]
 		if front.state == NPCAgent.St.IN_QUEUE \
-			and front.global_position.distance_to(slot_position(0)) < 1.6:
+			and front.global_position.distance_to(slot_position(0)) < 1.8:
 			_npc_queue.pop_front()
 			_npc_rider = front
+			_npc_phase = 0
 			_occupied = true
 			_occupant = front
 			_occupy_t = 0.0
@@ -374,13 +373,21 @@ func _drive_player(delta: float) -> void:
 		_finish()
 
 func _drive_npc(delta: float) -> void:
-	_npc_rider.ride_t += delta / NPC_RIDE_DURATION
-	var t := clampf(_npc_rider.ride_t, 0.0, 1.0)
-	_npc_rider.global_position = ride_point(t)
-	if t >= 1.0:
-		var done := _npc_rider
-		_npc_rider = null
-		done.reached_pool(ride_point(1.0))
+	if _npc_phase == 0:
+		_npc_rider.ride_t += delta / NPC_RIDE_DURATION
+		var t := clampf(_npc_rider.ride_t, 0.0, 1.0)
+		_npc_rider.global_position = ride_point(t)
+		if t >= 1.0:
+			_npc_rider.begin_exit()
+			_npc_phase = 1
+	else:
+		_npc_rider.ride_t += delta / NPC_EXIT_DURATION
+		var t := clampf(_npc_rider.ride_t, 0.0, 1.0)
+		_npc_rider.global_position = ride_point(1.0).lerp(ladder_top(), t)
+		if t >= 1.0:
+			var done := _npc_rider
+			_npc_rider = null
+			done.end_cycle()
 
 func _update_light() -> void:
 	var player_next := _player_waiting and _player_ahead <= 0 and not _occupied \
