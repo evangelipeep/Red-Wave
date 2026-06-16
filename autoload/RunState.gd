@@ -12,6 +12,7 @@ var rides_total: int = 0             # сколько горок проехал 
 var dizziness_peak: int = 0          # пик головокружения за день (для финала)
 var score: int = 0                   # очки за день
 var markers: Array[Vector3] = []     # приватные метки игрока (карта M)
+var pings: Array = []                # активные пинги [{pos, until}] для карты/миникарты
 var _zones_visited: Dictionary = {}  # для бонуса «первопроходец зоны»
 var _dizzy_decay_accum: float = 0.0
 
@@ -19,6 +20,10 @@ const DIZZY_DECAY_EVERY := 6.0   # сек на −1 головокружения
 
 func _ready() -> void:
 	EventBus.slide_completed.connect(_on_slide_completed)
+	EventBus.ping_made.connect(_on_ping_made)
+
+func _on_ping_made(_player_id: int, world_pos: Vector3, _context: String) -> void:
+	pings.append({"pos": world_pos, "until": Time.get_ticks_msec() / 1000.0 + GameConstants.PING_LIFE})
 
 func reset() -> void:
 	coins = GameConstants.COINS_START
@@ -28,6 +33,7 @@ func reset() -> void:
 	dizziness_peak = 0
 	score = 0
 	markers.clear()
+	pings.clear()
 	_zones_visited.clear()
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 	EventBus.score_changed.emit(Net.local_id(), score)
@@ -63,6 +69,12 @@ func visit_zone(zone: String) -> void:
 	EventBus.toast.emit("Первопроходец зоны! +%d очков" % GameConstants.ZONE_FIRST)
 
 func _process(delta: float) -> void:
+	# Чистим протухшие пинги.
+	if not pings.is_empty():
+		var t := Time.get_ticks_msec() / 1000.0
+		for i in range(pings.size() - 1, -1, -1):
+			if float(pings[i]["until"]) <= t:
+				pings.remove_at(i)
 	if dizziness <= 0:
 		return
 	_dizzy_decay_accum += delta

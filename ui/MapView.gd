@@ -72,6 +72,10 @@ func _draw() -> void:
 	for m in RunState.markers:
 		_draw_diamond(world_to_map(m), 6.0, Color(1.0, 0.9, 0.3))
 
+	# Активные пинги (СКМ).
+	for pg in RunState.pings:
+		draw_circle(world_to_map(pg["pos"]), 5.0, Color(0.4, 0.9, 1.0, 0.9))
+
 	var players := get_tree().get_nodes_in_group("player")
 	if not players.is_empty():
 		var pl := players[0] as Node3D
