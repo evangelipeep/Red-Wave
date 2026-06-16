@@ -12,6 +12,9 @@ class_name SlideRail
 @export var drag: float = 0.25
 @export var build_demo_curve: bool = true
 @export var build_access: bool = true
+@export var is_race: bool = false          # гоночная горка (едет соперник-призрак)
+
+const RACE_GHOST_TIME := 4.0               # за сколько спускается соперник
 
 const NPC_RIDE_DURATION := 3.0
 const NPC_EXIT_DURATION := 1.5
@@ -36,6 +39,8 @@ var _player_no_wait: bool = false
 var _player_legit: bool = false
 var _was_green: bool = false
 
+var _race_ghost: MeshInstance3D = null
+var _ghost_t: float = 0.0
 var _occupied: bool = false
 var _occupant: Object = null
 var _occupy_t: float = 0.0
@@ -472,7 +477,24 @@ func _start_ride(player: PlayerController) -> void:
 	_speed = base_speed
 	_follow.progress = 0.0
 	_board_zone.monitoring = false
+	if is_race:
+		_spawn_ghost()
 	player.mount_rail(self)
+
+func _spawn_ghost() -> void:
+	_ghost_t = 0.0
+	_race_ghost = MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	cm.radius = 0.35
+	cm.height = 1.7
+	_race_ghost.mesh = cm
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1, 0.3, 0.3)
+	_race_ghost.material_override = mat
+	var host := get_tree().current_scene
+	if host:
+		host.add_child(_race_ghost)
+		_race_ghost.global_position = ride_point(0.0) + Vector3(2.5, 0.9, 0)
 
 func _drive_player(delta: float) -> void:
 	var fwd := -_follow.global_transform.basis.z
@@ -482,6 +504,9 @@ func _drive_player(delta: float) -> void:
 	var eff := _speed * WeightSystem.speed_factor()
 	_follow.progress += eff * delta
 	_rider.ride_to(_follow.global_transform, clampf(eff / max_speed, 0.0, 1.0), delta)
+	if is_race and _race_ghost != null:
+		_ghost_t += delta
+		_race_ghost.global_position = ride_point(clampf(_ghost_t / RACE_GHOST_TIME, 0.0, 1.0)) + Vector3(2.5, 0.9, 0)
 	if _follow.progress_ratio >= 1.0:
 		_finish()
 
@@ -520,6 +545,14 @@ func _finish() -> void:
 	_speed = 0.0
 	rider.dismount(_follow.global_transform, exit_vel)
 	EventBus.slide_completed.emit(Net.local_id(), slide_id)
+	if is_race and _race_ghost != null:
+		var win := _ghost_t < RACE_GHOST_TIME
+		_race_ghost.queue_free()
+		_race_ghost = null
+		if win:
+			RunState.add_race_win()
+		else:
+			EventBus.toast.emit("Гонку проиграл — соперник был быстрее")
 	if _player_legit:
 		_player_legit = false
 		RunState.register_legit_ride()   # честно отстоял очередь

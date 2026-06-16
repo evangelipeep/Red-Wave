@@ -19,6 +19,7 @@ var bard_photo: bool = false         # сделал фото с Бардом
 var river_laps: int = 0              # кругов по ленивой реке
 var fast_passes: int = 0            # пропуска «без очереди»
 var skips_used: int = 0             # сколько раз прошёл без очереди по пропуску
+var race_wins: int = 0              # побед в гонках (Рой)
 var offenses: int = 0                 # нарушений очереди (прыжки без очереди)
 var run_blocked: bool = false         # бег заблокирован охраной (наказание)
 var queue_jump_banned: bool = false   # после 2 нарушений — прыгать без очереди вообще нельзя
@@ -49,6 +50,7 @@ func reset() -> void:
 	river_laps = 0
 	fast_passes = 0
 	skips_used = 0
+	race_wins = 0
 	personal_quest.clear()
 	offenses = 0
 	run_blocked = false
@@ -65,6 +67,11 @@ func add_score(delta: int) -> void:
 func add_lap() -> void:
 	river_laps += 1
 	EventBus.toast.emit("Круг по реке! (%d)" % river_laps)
+
+func add_race_win() -> void:
+	race_wins += 1
+	add_score(GameConstants.RACE_WIN)
+	EventBus.toast.emit("Победа в гонке! +%d (всего %d)" % [GameConstants.RACE_WIN, race_wins])
 
 # Прыжок без очереди пойман: штраф, блок бега, реакция охраны.
 func register_offense() -> void:

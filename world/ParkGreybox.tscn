@@ -60,7 +60,8 @@ slide_id = "krylo"
 
 [node name="SlideDelta" parent="." instance=ExtResource("5")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 58, 0, 0)
-slide_id = "zhalo"
+slide_id = "roy"
+is_race = true
 
 [node name="SlideZero" parent="." instance=ExtResource("5")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -46)

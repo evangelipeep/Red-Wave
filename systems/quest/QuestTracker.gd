@@ -4,7 +4,7 @@ extends Node
 ## завершении. Оценивает то, что уже есть (горки, вес, голова, еда, театры/шоу);
 ## атомы систем «в разработке» (лавки/гонки/очереди/круги) пока авто-зачёт.
 
-const AUTO_AXES := ["race"]
+const AUTO_AXES := []   # все атомы трекаются реально
 const EVE_19_FRAC := 10.0 / 12.0   # 19:00 при дне 09:00–21:00
 const SHOW_WINDOW := 20.0          # сек, сколько идёт шоу после старта
 
@@ -178,6 +178,8 @@ func _progress_atom(a: Dictionary) -> Vector2i:
 			return Vector2i(mini(RunState.river_laps, n), n)
 		"skip":
 			return Vector2i(mini(RunState.skips_used, n), n)
+		"race":
+			return Vector2i(mini(RunState.race_wins, n), n)
 		"shows":
 			return Vector2i(mini(_shows_attended, n), n)
 		_:
@@ -225,6 +227,8 @@ func _evaluate(atom: Dictionary) -> bool:
 			return RunState.river_laps >= n
 		"skip":
 			return RunState.skips_used >= n
+		"race":
+			return RunState.race_wins >= n
 		"shows":
 			return _shows_attended >= n
 		"weightlow":
