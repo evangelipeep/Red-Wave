@@ -4,15 +4,18 @@ class_name DroppedFood
 ## Бесхозный пропадает через 20 игровых минут (этап 4 — его убирает уборщик-NPC).
 ## Сетевая сущность с кросс-подбором — этап 5.
 
-const DESPAWN_MIN := 20.0
+const DESPAWN_MIN := 20.0       # через столько еду убирает уборщик (Cleaner)
+const FALLBACK_MIN := 30.0      # страховочный авто-деспаун, если уборщик не дошёл
 const DAY_MINUTES := 720.0
 
 var tray: Dictionary = {}
+var spawned_at: float = 0.0     # доля дня, когда уронили (для уборщика)
 var _despawn_at: float = 1.0
 
 func setup(t: Dictionary) -> void:
 	tray = t
-	_despawn_at = Clock.day_fraction + DESPAWN_MIN / DAY_MINUTES
+	spawned_at = Clock.day_fraction
+	_despawn_at = Clock.day_fraction + FALLBACK_MIN / DAY_MINUTES
 
 func _ready() -> void:
 	add_to_group("dropped_food")

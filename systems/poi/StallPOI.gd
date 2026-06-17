@@ -22,11 +22,12 @@ var _pickup_zone: Area3D
 var _light_green: MeshInstance3D
 var _light_red: MeshInstance3D
 
-var _npc_queue: Array = []      # NPC в очереди заказа (этап 4)
+var _npc_queue: Array = []      # NPC-патроны в очереди заказа
+var _orderer = null             # патрон сейчас у окна заказа (или null)
 var _order_present := false     # локальный игрок в зоне заказа
 var _queue_present := false     # локальный игрок в зоне ожидания
 var _pickup_present := false    # локальный игрок в зоне выдачи
-var _player_ahead := 0          # NPC впереди игрока (этап 4; пока 0)
+var _player_ahead := 0          # патронов впереди игрока (отстоять до своего хода)
 var _cook_load := 0             # сколько заказов сейчас готовится (для времени ожидания)
 var _was_green := false
 
@@ -70,11 +71,11 @@ func _build_visuals() -> void:
 
 func _build_zones() -> void:
 	_queue_zone = _make_zone("StallQueue", QUEUE_OFFSET, Vector3(4, 3, 3))
-	_queue_zone.body_entered.connect(func(b: Node3D): if b is PlayerController: _queue_present = true)
-	_queue_zone.body_exited.connect(func(b: Node3D): if b is PlayerController: _queue_present = false)
+	_queue_zone.body_entered.connect(_on_queue_entered)
+	_queue_zone.body_exited.connect(_on_queue_exited)
 	_order_zone = _make_zone("StallOrder", ORDER_OFFSET, Vector3(3, 3, 2))
-	_order_zone.body_entered.connect(func(b: Node3D): if b is PlayerController: _order_present = true)
-	_order_zone.body_exited.connect(func(b: Node3D): if b is PlayerController: _order_present = false)
+	_order_zone.body_entered.connect(_on_order_entered)
+	_order_zone.body_exited.connect(_on_order_exited)
 	_pickup_zone = _make_zone("StallPickup", PICKUP_OFFSET, Vector3(2.6, 3, 2.4))
 	_pickup_zone.body_entered.connect(func(b: Node3D): if b is PlayerController: _pickup_present = true)
 	_pickup_zone.body_exited.connect(func(b: Node3D): if b is PlayerController: _pickup_present = false)
@@ -132,7 +133,8 @@ func _light_sphere(col: Color, local_pos: Vector3) -> MeshInstance3D:
 	return m
 
 func _process(_delta: float) -> void:
-	var green := _order_present and _player_ahead <= 0
+	_dispatch_npc()
+	var green := _order_present and _player_ahead <= 0 and _orderer == null
 	if _light_green:
 		_light_green.visible = green
 	if _light_red:
@@ -140,6 +142,95 @@ func _process(_delta: float) -> void:
 	if green and not _was_green and not RunState.has_pending(stall_id):
 		EventBus.toast.emit("🟢 %s: можно заказывать (E)" % FoodMenu.stall_name(stall_id))
 	_was_green = green
+	if _player_present():
+		EventBus.queue_update.emit(stall_id, _player_ahead, true)
+
+# --- Очередь NPC-патронов (этап 4). ---
+func order_point() -> Vector3:
+	return to_global(Vector3(ORDER_OFFSET.x, 0, ORDER_OFFSET.z))
+
+func pickup_point() -> Vector3:
+	return to_global(Vector3(PICKUP_OFFSET.x, 0, PICKUP_OFFSET.z))
+
+func queue_slot(i: int) -> Vector3:
+	return to_global(Vector3(QUEUE_OFFSET.x, 0, QUEUE_OFFSET.z + float(i) * 1.2))
+
+func queue_back_position() -> Vector3:
+	return queue_slot(_npc_queue.size())
+
+func queue_index(p) -> int:
+	return _npc_queue.find(p)
+
+func queue_len() -> int:
+	return _npc_queue.size() + (1 if _orderer != null else 0)
+
+func join_queue(p) -> void:
+	if not _npc_queue.has(p):
+		_npc_queue.append(p)
+
+func leave_queue(p) -> void:
+	_npc_queue.erase(p)
+	if _orderer == p:
+		_orderer = null
+
+# Передний патрон идёт к окну заказа. На «зелёный игрока» (впереди никого) — патроны ждут.
+func _dispatch_npc() -> void:
+	if _orderer != null or _npc_queue.is_empty():
+		return
+	if _player_present() and _player_ahead <= 0:
+		return   # сейчас очередь игрока — не проскакиваем
+	var front = _npc_queue[0]
+	if front.state == FoodPatron.St.IN_QUEUE:
+		_npc_queue.pop_front()
+		_orderer = front
+		front.go_order(order_point())
+
+# Патрон оформил заказ у окна — окно свободно, игрок на шаг ближе к своему ходу.
+func npc_ordered(p) -> void:
+	if _orderer == p:
+		_orderer = null
+		if _player_present():
+			_player_ahead = maxi(_player_ahead - 1, 0)
+
+func _player_present() -> bool:
+	return _order_present or _queue_present
+
+func _begin_wait() -> void:
+	_player_ahead = _npc_queue.size() + (1 if _orderer != null else 0)
+
+func _end_wait() -> void:
+	_player_ahead = 0
+	EventBus.queue_update.emit(stall_id, 0, false)
+
+func _on_queue_entered(b: Node3D) -> void:
+	if not (b is PlayerController):
+		return
+	var was := _player_present()
+	_queue_present = true
+	if not was:
+		_begin_wait()
+
+func _on_queue_exited(b: Node3D) -> void:
+	if not (b is PlayerController):
+		return
+	_queue_present = false
+	if not _player_present():
+		_end_wait()
+
+func _on_order_entered(b: Node3D) -> void:
+	if not (b is PlayerController):
+		return
+	var was := _player_present()
+	_order_present = true
+	if not was:
+		_begin_wait()
+
+func _on_order_exited(b: Node3D) -> void:
+	if not (b is PlayerController):
+		return
+	_order_present = false
+	if not _player_present():
+		_end_wait()
 
 # E — забор готового (в зоне выдачи, без очереди) или заказ (в зоне заказа, на зелёный).
 func _on_interact() -> void:
