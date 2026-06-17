@@ -71,8 +71,8 @@ func _build_atoms() -> Array:
 		A.append({"name":"Театры×%d"%k, "ep":3.0*k, "t":k*110.0, "fixed":true, "coin":0, "axis":"shows", "n":k})
 	# PHOTO_BARD
 	A.append({"name":"Фото с Бардом", "ep":3.0, "t":120.0, "fixed":false, "coin":0, "axis":"bard"})
-	# FOOD_ALL_ZONES
-	A.append({"name":"Еда в 3 зонах", "ep":3.0, "t":135.0, "fixed":false, "coin":3, "axis":"food"})
+	# FOOD_STALLS — поешь в 3 разных лавках фуд-корта
+	A.append({"name":"Поешь в 3 разных лавках", "ep":3.0, "t":135.0, "fixed":false, "coin":3, "axis":"food"})
 	# COLLECT_SOUVENIRS
 	A.append({"name":"Сувенир из каждой лавки", "ep":4.0, "t":135.0, "fixed":false, "coin":5, "axis":"shop"})
 	# WEIGHT_END_BELOW79 / EXTREME_AT

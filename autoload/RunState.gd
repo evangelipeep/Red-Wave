@@ -23,6 +23,14 @@ var race_wins: int = 0              # побед в гонках (Рой)
 var offenses: int = 0                 # нарушений очереди (прыжки без очереди)
 var run_blocked: bool = false         # бег заблокирован охраной (наказание)
 var queue_jump_banned: bool = false   # после 2 нарушений — прыгать без очереди вообще нельзя
+
+# --- Фуд-корт (этап 1) ---
+var in_food_court: bool = false       # игрок внутри зоны фуд-корта (FoodCourtZone)
+var pending_orders: Array = []        # выданные пищалки {stall_id, color, ready_at, dishes:[]}
+var trays: Array = []                 # забранные подносы (≤4) {stall_id, color, dishes:[]}
+var selected_slot: int = -1           # активный слот подноса (для еды/рук/выброса)
+
+const MAX_TRAYS := 4
 var _legit_rides_since_block: int = 0
 var _zones_visited: Dictionary = {}  # для бонуса «первопроходец зоны»
 var _dizzy_decay_accum: float = 0.0
@@ -55,6 +63,10 @@ func reset() -> void:
 	offenses = 0
 	run_blocked = false
 	queue_jump_banned = false
+	in_food_court = false
+	pending_orders.clear()
+	trays.clear()
+	selected_slot = -1
 	_legit_rides_since_block = 0
 	_zones_visited.clear()
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
@@ -150,22 +162,97 @@ func _on_slide_completed(_player_id: int, slide_id: String) -> void:
 	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
 	add_dizziness(int(info.get("dizzy", 0)))
 
-# Снек: +1 кг, −1 голова, 1 монета (GDD §5).
-func try_eat_snack() -> bool:
-	if coins < 1:
+# =========================================================================
+#  Фуд-корт: заказы (пищалки) → подносы (инвентарь ≤4) → еда в зоне (этап 1).
+#  Логику лавок/очереди/готовки добавит StallPOI (этап 3); тут — данные и правила.
+# =========================================================================
+
+func can_take_tray() -> bool:
+	return trays.size() < MAX_TRAYS
+
+# Оформлен заказ в лавке: выдаём пищалку. ready_at — доля дня готовности.
+func add_pending_order(stall_id: String, ready_at: float, dishes: Array) -> void:
+	pending_orders.append({
+		"stall_id": stall_id,
+		"color": FoodMenu.stall_color(stall_id),
+		"ready_at": ready_at,
+		"dishes": dishes.duplicate(true),
+	})
+	EventBus.toast.emit("Заказ принят (%s) — ждите пищалку." % FoodMenu.stall_name(stall_id))
+
+func order_is_ready(order: Dictionary) -> bool:
+	return Clock.day_fraction >= float(order.get("ready_at", 1.0))
+
+# Есть ли готовый, но не забранный заказ этой лавки.
+func has_ready_order(stall_id: String) -> bool:
+	for o in pending_orders:
+		if o["stall_id"] == stall_id and order_is_ready(o):
+			return true
+	return false
+
+# Забрать готовый заказ лавки в поднос (в зоне выдачи). false — нет места/нет готового.
+func collect_order(stall_id: String) -> bool:
+	for i in pending_orders.size():
+		var o: Dictionary = pending_orders[i]
+		if o["stall_id"] != stall_id or not order_is_ready(o):
+			continue
+		if not can_take_tray():
+			EventBus.toast.emit("Нет места в инвентаре — доешьте или выбросите поднос.")
+			return false
+		trays.append({"stall_id": stall_id, "color": o["color"], "dishes": o["dishes"]})
+		pending_orders.remove_at(i)
+		if selected_slot < 0:
+			selected_slot = trays.size() - 1
+		EventBus.toast.emit("Поднос получен: %s" % FoodMenu.stall_name(stall_id))
+		return true
+	return false
+
+func select_slot(i: int) -> void:
+	if i >= 0 and i < trays.size():
+		selected_slot = i
+
+# Съесть одно блюдо из подноса (только в зоне фуд-корта). Опустевший поднос убираем.
+func eat_from_slot(i: int) -> bool:
+	if i < 0 or i >= trays.size():
 		return false
-	coins -= 1
-	WeightSystem.eat_snack()
-	add_dizziness(-1)
-	EventBus.food_eaten.emit(current_zone)
+	if not in_food_court:
+		EventBus.toast.emit("Есть можно только на фуд-корте.")
+		return false
+	var tray: Dictionary = trays[i]
+	var tray_dishes: Array = tray["dishes"]
+	if tray_dishes.is_empty():
+		return false
+	var dish: Dictionary = tray_dishes.pop_back()
+	var stall_id: String = tray["stall_id"]
+	WeightSystem.eat(float(dish.get("kg", 1.0)))
+	add_dizziness(int(dish.get("dizzy", 0)))
+	var stall: Dictionary = FoodMenu.stall(stall_id)
+	PlayerBuffs.apply_effect(str(stall.get("effect", "")), float(stall.get("effect_min", 0.0)))
+	EventBus.food_eaten.emit(stall_id)
+	EventBus.toast.emit("Съедено: %s" % str(dish.get("name", "блюдо")))
+	if tray_dishes.is_empty():
+		trays.remove_at(i)
+		_fix_selected()
 	return true
 
-# Блюдо: +2 кг, −3 голова, 2 монеты.
-func try_eat_meal() -> bool:
-	if coins < 2:
-		return false
-	coins -= 2
-	WeightSystem.eat_meal()
-	add_dizziness(-3)
-	EventBus.food_eaten.emit(current_zone)
-	return true
+# Выбросить поднос на землю (другой игрок сможет подобрать). Возвращает данные подноса.
+func drop_tray(i: int) -> Dictionary:
+	if i < 0 or i >= trays.size():
+		return {}
+	var tray: Dictionary = trays[i]
+	trays.remove_at(i)
+	_fix_selected()
+	return tray
+
+# Выбросить поднос в мусорку (уничтожить).
+func trash_tray(i: int) -> void:
+	if i < 0 or i >= trays.size():
+		return
+	trays.remove_at(i)
+	_fix_selected()
+
+func _fix_selected() -> void:
+	if trays.is_empty():
+		selected_slot = -1
+	else:
+		selected_slot = clampi(selected_slot, 0, trays.size() - 1)

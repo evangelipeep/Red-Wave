@@ -21,10 +21,12 @@ EventBus="*res://autoload/EventBus.gd"
 Clock="*res://autoload/Clock.gd"
 Hype="*res://autoload/Hype.gd"
 WeightSystem="*res://autoload/WeightSystem.gd"
+PlayerBuffs="*res://autoload/PlayerBuffs.gd"
 RunState="*res://autoload/RunState.gd"
 QuestTracker="*res://systems/quest/QuestTracker.gd"
 Net="*res://autoload/Net.gd"
 Slides="*res://data/slides.gd"
+FoodMenu="*res://data/food_menu.gd"
 QuestGenerator="*res://systems/quest/QuestGenerator.gd"
 
 [physics]

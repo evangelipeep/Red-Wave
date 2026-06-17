@@ -100,17 +100,38 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE \
 			if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \
 			else Input.MOUSE_MODE_CAPTURED
-	# Еда/туалет (меняют вес → скорость спуска, брызги, лок экстрима).
-	elif event.is_action_pressed("eat_snack"):
-		RunState.try_eat_snack()
-	elif event.is_action_pressed("eat_meal"):
-		RunState.try_eat_meal()
+	# --- Фуд-корт: инвентарь подносов, еда, взаимодействие ---
+	elif event.is_action_pressed("inv_1"):
+		RunState.select_slot(0)
+	elif event.is_action_pressed("inv_2"):
+		RunState.select_slot(1)
+	elif event.is_action_pressed("inv_3"):
+		RunState.select_slot(2)
+	elif event.is_action_pressed("inv_4"):
+		RunState.select_slot(3)
+	elif event.is_action_pressed("eat_food"):
+		RunState.eat_from_slot(RunState.selected_slot)
+	elif event.is_action_pressed("interact"):
+		_interact()
+	elif event.is_action_pressed("throw_food"):
+		_throw_food()
 	elif event.is_action_pressed("toilet"):
 		if not WeightSystem.toilet():
 			EventBus.toast.emit("Туалет недоступен — раз в 3 часа (ещё %.1f ч)"
 				% WeightSystem.toilet_ready_in_hours())
 	elif event.is_action_pressed("ping"):
 		_do_ping()
+
+# Взаимодействие (E): заказать/забрать у лавки, подобрать выброшенную еду.
+# Логику лавок/еды подключит этап 3 (StallPOI/выброшенная еда сами слушают присутствие).
+func _interact() -> void:
+	EventBus.interact_pressed.emit()
+
+# Выброс выбранного подноса (G): у мусорки — с подтверждением (этап 3), иначе уронить на пол.
+func _throw_food() -> void:
+	if RunState.selected_slot < 0:
+		return
+	EventBus.throw_food_pressed.emit()
 
 func _physics_process(delta: float) -> void:
 	if _ping_cd > 0.0:
@@ -136,6 +157,7 @@ func _walk(delta: float) -> void:
 	var moving := input != Vector2.ZERO
 	var sprinting := Input.is_action_pressed("sprint") and moving and not RunState.run_blocked
 	var target_speed := sprint_speed if sprinting else walk_speed
+	target_speed *= PlayerBuffs.move_speed_mult()   # кофеин ×2 / тяжесть ×0.8 (еда)
 	var accel := ground_accel if is_on_floor() else air_accel
 
 	var horiz := Vector3(velocity.x, 0.0, velocity.z)
@@ -314,8 +336,14 @@ func _ensure_inputs() -> void:
 	_add_key("jump", KEY_SPACE)
 	_add_key("sprint", KEY_SHIFT)
 	_add_key("swim_down", KEY_CTRL)
-	_add_key("eat_snack", KEY_E)
-	_add_key("eat_meal", KEY_Q)
+	# Фуд-корт: взаимодействие/еда/инвентарь
+	_add_key("interact", KEY_E)      # заказать у лавки / забрать / подобрать
+	_add_key("eat_food", KEY_F)      # съесть блюдо из активного слота
+	_add_key("throw_food", KEY_G)    # выбросить активный поднос
+	_add_key("inv_1", KEY_1)
+	_add_key("inv_2", KEY_2)
+	_add_key("inv_3", KEY_3)
+	_add_key("inv_4", KEY_4)
 	_add_key("toilet", KEY_T)
 	_add_key("map", KEY_M)
 	_add_mouse("ping", MOUSE_BUTTON_MIDDLE)

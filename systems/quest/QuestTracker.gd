@@ -15,7 +15,7 @@ var _personal_paid: bool = false
 
 # Сырой трекинг за день.
 var _ride_counts: Dictionary = {}
-var _eaten_zones: Dictionary = {}
+var _eaten_stalls: Dictionary = {}   # в каких лавках фуд-корта поел (по stall_id)
 var _saw_dizzy_max: bool = false
 var _dizzy_cleared_in_time: bool = false
 var _weighthi_done: bool = false
@@ -65,7 +65,7 @@ func quest_complete() -> bool:
 
 func _on_run_started() -> void:
 	_ride_counts.clear()
-	_eaten_zones.clear()
+	_eaten_stalls.clear()
 	_saw_dizzy_max = false
 	_dizzy_cleared_in_time = false
 	_weighthi_done = false
@@ -88,9 +88,9 @@ func _on_ride(_pid: int, slide_id: String) -> void:
 		_weighthi_done = true
 	_reevaluate(true)
 
-func _on_food(zone: String) -> void:
-	if zone != "":
-		_eaten_zones[zone] = true
+func _on_food(stall_id: String) -> void:
+	if stall_id != "":
+		_eaten_stalls[stall_id] = true
 	_reevaluate(true)
 
 func _on_dizzy(_pid: int, level: int) -> void:
@@ -171,7 +171,7 @@ func _progress_atom(a: Dictionary) -> Vector2i:
 			var z := str(a.get("zone", ""))
 			return Vector2i(_zone_ridden_count(z), Slides.in_zone(z).size())
 		"food":
-			return Vector2i(mini(_eaten_zones.size(), 3), 3)
+			return Vector2i(mini(_eaten_stalls.size(), 3), 3)
 		"shop":
 			return Vector2i(mini(RunState.souvenirs.size(), 3), 3)
 		"laps":
@@ -218,7 +218,7 @@ func _evaluate(atom: Dictionary) -> bool:
 		"diffsens":
 			return _distinct_sensations() >= n
 		"food":
-			return _eaten_zones.size() >= 3
+			return _eaten_stalls.size() >= 3
 		"shop":
 			return RunState.souvenirs.size() >= 3
 		"bard":

@@ -34,11 +34,9 @@ func speed_factor() -> float:
 func can_ride_extreme() -> bool:
 	return not _extreme_locked
 
-func eat_snack() -> void:
-	_set_kg(kg + GameConstants.SNACK_KG)
-
-func eat_meal() -> void:
-	_set_kg(kg + GameConstants.MEAL_KG)
+# Съесть блюдо: добавить его вес (kg задаётся блюдом в data/food_menu.gd).
+func eat(kg_amount: float) -> void:
+	_set_kg(kg + kg_amount)
 
 # --- Туалет с кулдауном (раз в 3 игровых часа). ---
 func can_toilet() -> bool:
@@ -46,7 +44,8 @@ func can_toilet() -> bool:
 		or (Clock.day_fraction - _last_toilet_frac) >= GameConstants.TOILET_COOLDOWN_FRAC
 
 func toilet() -> bool:
-	if not can_toilet():
+	# «Остро» (мексика) — один поход без кулдауна.
+	if not can_toilet() and not PlayerBuffs.consume_toilet_skip():
 		return false
 	_last_toilet_frac = Clock.day_fraction
 	_set_kg(kg + GameConstants.TOILET_KG)
@@ -62,6 +61,7 @@ func toilet_ready_in_hours() -> float:
 func burn(calories: float) -> void:
 	if calories <= 0.0:
 		return
+	calories *= PlayerBuffs.calorie_mult()   # «горячий суп» (азия) ускоряет сжигание
 	calories_burned += calories
 	_kg_accum += calories
 	while _kg_accum >= GameConstants.CAL_PER_KG:

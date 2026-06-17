@@ -17,10 +17,12 @@ signal zone_closed(player_id: int, zone: String)            # первопрох
 signal quest_progress(player_id: int, quest_id: String, done: bool)
 signal ping_made(player_id: int, world_pos: Vector3, context: String)
 signal toast(message: String)                               # всплывающее уведомление в HUD
-signal food_eaten(zone: String)                             # поел в зоне (для квеста «еда в 3 зонах»)
+signal food_eaten(stall_id: String)                         # поел блюдо из лавки фуд-корта (квест «еда в 3 лавках»)
 signal score_changed(player_id: int, score: int)
 signal queue_update(slide_id: String, seconds_left: float, active: bool)   # очередь на горке
 signal map_opened(open: bool)                               # открыта/закрыта карта M (без паузы)
 signal guard_alert(level: int)                              # игрок нарушил очередь — охранник реагирует
 signal run_block_changed(blocked: bool)                     # блокировка бега (наказание)
+signal interact_pressed()                                   # игрок нажал E (заказ/забор/подбор еды)
+signal throw_food_pressed()                                 # игрок нажал G (выброс активного подноса)
 @warning_ignore_restore("unused_signal")
