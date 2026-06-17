@@ -3,7 +3,9 @@ extends Node
 ##   • G у мусорки (группа food_trash) → диалог подтверждения → уничтожить поднос.
 ##   • G не у мусорки → оставить поднос на полу (DroppedFood) — подбираемо другими.
 ##   • E рядом с выброшенной едой → подобрать в инвентарь (если есть место).
-## Лавки (StallPOI) свой E обрабатывают сами. Сеть/синхрон выброшенной еды — этап 5.
+## Лавки (StallPOI) свой E обрабатывают сами.
+## Кооп (этап 5): популярность лавок одна на всех (хост → клиенты). NPC-патроны —
+## локальные у каждого клиента (как NPC горок), но по общей популярности очереди похожи.
 
 const PICK_R := 2.6     # радиус подбора еды
 const TRASH_R := 3.4    # радиус «у мусорки»
@@ -19,16 +21,33 @@ func _ready() -> void:
 	EventBus.throw_food_pressed.connect(_on_throw)
 	EventBus.interact_pressed.connect(_on_interact)
 	EventBus.run_started.connect(_roll_hype)
+	Net.peer_joined.connect(_on_peer_joined)
 
 # --- Скрытая популярность лавок (как Гул горок), у каждой свой час пик. ---
+# Кооп: катит только хост/одиночка; клиент ждёт _sync_hype от хоста.
 func _roll_hype() -> void:
+	_spawn_cleaner()
+	if Net.is_online() and not Net.is_server():
+		return
 	stall_hype.clear()
 	_rush.clear()
 	for sid in FoodMenu.ids():
 		stall_hype[sid] = randi_range(20, 99)
 		_rush[sid] = randf()
 	print("[Food] популярность лавок: %s" % str(stall_hype))
-	_spawn_cleaner()
+	if Net.is_online() and Net.is_server():
+		rpc("_sync_hype", stall_hype, _rush)
+
+# Новый игрок подключился — хост шлёт ему текущую популярность.
+func _on_peer_joined(_id: int) -> void:
+	if Net.is_online() and Net.is_server() and not stall_hype.is_empty():
+		rpc("_sync_hype", stall_hype, _rush)
+
+@rpc("authority", "reliable", "call_remote")
+func _sync_hype(hype: Dictionary, rush: Dictionary) -> void:
+	stall_hype = hype
+	_rush = rush
+	print("[Food] популярность лавок от хоста: %s" % str(stall_hype))
 
 func _spawn_cleaner() -> void:
 	if not get_tree().get_nodes_in_group("cleaner").is_empty():
