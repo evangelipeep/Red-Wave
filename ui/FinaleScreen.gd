@@ -38,6 +38,24 @@ func _format() -> String:
 	if not RunState.personal_quest.is_empty():
 		var pm := "✓" if QuestTracker.personal_is_done() else "✗"
 		s += "\n★ Личное: %s %s\n" % [pm, str(RunState.personal_quest[0].get("name", "?"))]
-	s += "\nОЧКИ ЗА ДЕНЬ: %d\n\n" % RunState.score
-	s += "Enter — заново"
+	s += "\nОЧКИ ЗА ДЕНЬ: %d\n" % RunState.score
+	s += _coop_board()
+	s += "\nEnter — заново"
+	return s
+
+func _coop_board() -> String:
+	if not Net.is_online():
+		return ""
+	var coop := get_tree().get_first_node_in_group("coop")
+	if coop == null:
+		return ""
+	var rows: Array = coop.leaderboard()
+	if rows.size() < 2:
+		return ""   # один игрок — таблица не нужна
+	var s := "\nТАБЛО КОМАНДЫ\n"
+	var place := 1
+	for r in rows:
+		var me := "  ← вы" if r["me"] else ""
+		s += "   %d. %-10s %d%s\n" % [place, str(r["name"]), int(r["score"]), me]
+		place += 1
 	return s

@@ -16,14 +16,19 @@ const COLORS := [
 
 var _avatars: Dictionary = {}      # peer_id -> RemoteAvatar
 var _identities: Dictionary = {}   # peer_id -> {name, color}  (на случай прихода до аватара)
+var _peer_scores: Dictionary = {}  # peer_id -> int  (для общего финала)
 var _send_accum: float = 0.0
 var _clock_accum: float = 0.0
+var _score_accum: float = 0.0
+var _finale: bool = false
 
 func _ready() -> void:
+	add_to_group("coop")
 	Net.peer_joined.connect(_on_peer_joined)
 	Net.peer_left.connect(_on_peer_left)
 	EventBus.run_started.connect(_on_run_started)
 	EventBus.ping_made.connect(_on_ping_made)
+	Clock.day_finished.connect(func(): _finale = true)
 
 func _local_name() -> String:
 	return NAMES[Net.local_id() % NAMES.size()]
@@ -91,6 +96,23 @@ func _spawn_ping_marker(pos: Vector3, ctx: String, col: Color) -> void:
 	root.add_child(label)
 	get_tree().create_timer(GameConstants.PING_LIFE).timeout.connect(root.queue_free)
 
+# --- Общий финал: каждый шлёт свой счёт, FinaleScreen строит таблицу. ---
+@rpc("any_peer", "unreliable", "call_remote")
+func _recv_score(score: int) -> void:
+	_peer_scores[multiplayer.get_remote_sender_id()] = score
+
+## Таблица очков всех игроков, отсортированная по убыванию. [{name, score, me}].
+func leaderboard() -> Array:
+	var rows: Array = []
+	rows.append({"name": _local_name(), "score": RunState.score, "me": true})
+	for id in _peer_scores:
+		var nm := "Игрок %d" % id
+		if _identities.has(id):
+			nm = _identities[id]["name"]
+		rows.append({"name": nm, "score": int(_peer_scores[id]), "me": false})
+	rows.sort_custom(func(a, b): return a["score"] > b["score"])
+	return rows
+
 func _process(delta: float) -> void:
 	if not Net.is_online():
 		return
@@ -106,6 +128,12 @@ func _process(delta: float) -> void:
 		if _clock_accum >= 1.0:
 			_clock_accum = 0.0
 			rpc("_sync_clock", Clock.day_fraction)
+	# В финале раз в секунду шлём свой счёт — он ещё досчитывается (Баллада/доплата квеста).
+	if _finale:
+		_score_accum += delta
+		if _score_accum >= 1.0:
+			_score_accum = 0.0
+			rpc("_recv_score", RunState.score)
 
 # --- Синхрон дня: хост → клиенты (один Гул, один квест, одно время). ---
 func _on_run_started() -> void:
