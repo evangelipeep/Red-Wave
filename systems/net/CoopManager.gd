@@ -1,7 +1,8 @@
 extends Node
-## Кооп-синхронизация (первый слой): рассылает позицию локального игрока другим
-## пирами (rpc ~20 Гц) и показывает их аватары. Аддитивно — оффлайн ничего не делает,
-## одиночная игра не меняется. Синхрон состояния (Гул/квесты) — следующий шаг (server-auth).
+## Кооп-синхронизация. Рассылает позицию локального игрока (rpc ~20 Гц) и показывает
+## аватары других; синхронизирует день от хоста (Гул/квест/часы); обменивается
+## именами/цветами игроков; транслирует пинги. Аддитивно — оффлайн ничего не делает,
+## одиночная игра не меняется.
 
 const SEND_HZ := 20.0
 
@@ -22,12 +23,16 @@ func _ready() -> void:
 	Net.peer_joined.connect(_on_peer_joined)
 	Net.peer_left.connect(_on_peer_left)
 	EventBus.run_started.connect(_on_run_started)
+	EventBus.ping_made.connect(_on_ping_made)
 
 func _local_name() -> String:
 	return NAMES[Net.local_id() % NAMES.size()]
 
 func _local_color() -> Color:
 	return COLORS[Net.local_id() % COLORS.size()]
+
+func _peer_color(id: int) -> Color:
+	return COLORS[id % COLORS.size()]
 
 # Новый пир появился — представляемся ему (и всем): имя + цвет.
 func _on_peer_joined(_id: int) -> void:
@@ -41,6 +46,50 @@ func _announce_identity(pname: String, color: Color) -> void:
 	if _avatars.has(id):
 		(_avatars[id] as RemoteAvatar).set_player_identity(pname, color)
 	print("[Coop] игрок %d — «%s»" % [id, pname])
+
+# --- Общие пинги: свой пинг летит остальным; чужой — на карту + 3D-маркер. ---
+func _on_ping_made(player_id: int, pos: Vector3, ctx: String) -> void:
+	# Только СВОЙ пинг рассылаем (чужие приходят через _recv_ping → re-emit, не зациклить).
+	if Net.is_online() and player_id == Net.local_id():
+		rpc("_recv_ping", pos, ctx)
+
+@rpc("any_peer", "reliable", "call_remote")
+func _recv_ping(pos: Vector3, ctx: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	_spawn_ping_marker(pos, ctx, _peer_color(id))
+	EventBus.ping_made.emit(id, pos, ctx)   # id чужой → _on_ping_made не рассылает повторно
+	print("[Coop] пинг от игрока %d: %s" % [id, ctx])
+
+func _spawn_ping_marker(pos: Vector3, ctx: String, col: Color) -> void:
+	var host := get_tree().current_scene
+	if host == null:
+		return
+	var root := Node3D.new()
+	host.add_child(root)
+	root.global_position = pos
+	var beam := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.12
+	cyl.bottom_radius = 0.12
+	cyl.height = 3.0
+	beam.mesh = cyl
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = col
+	mat.emission_enabled = true
+	mat.emission = col
+	beam.material_override = mat
+	beam.position = Vector3(0, 1.5, 0)
+	root.add_child(beam)
+	var label := Label3D.new()
+	label.text = ctx
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 40
+	label.pixel_size = 0.01
+	label.outline_size = 8
+	label.modulate = col
+	label.position = Vector3(0, 3.3, 0)
+	root.add_child(label)
+	get_tree().create_timer(GameConstants.PING_LIFE).timeout.connect(root.queue_free)
 
 func _process(delta: float) -> void:
 	if not Net.is_online():
