@@ -17,14 +17,19 @@ func _ready() -> void:
 	WeightSystem.reset()
 	RunState.reset()
 	RunState.coins = 30   # DEBUG: больше монет, чтобы можно было переесть до лока ≥91 кг
+	EventBus.scheduled_event.connect(_on_scheduled)
+	EventBus.guard_alert.connect(_on_guard_alert)
+	Clock.day_finished.connect(_on_day_end)
+	# Клиент в сети ждёт день от хоста (CoopManager._sync_session): свой Гул не катит.
+	if Net.is_online() and not Net.is_server():
+		RunState.personal_quest = QuestGenerator.generate_personal()
+		print("[Run] клиент: ожидание дня от хоста…")
+		return
 	Hype.roll()
 	RunState.main_quest = QuestGenerator.generate_main()
 	RunState.personal_quest = QuestGenerator.generate_personal()
 	print("[Run] горка дня = %s, день = %.0f сек, атомов в квесте = %d" % [
 		Hype.day_slide, debug_run_length, RunState.main_quest.size()])
-	EventBus.scheduled_event.connect(_on_scheduled)
-	EventBus.guard_alert.connect(_on_guard_alert)
-	Clock.day_finished.connect(_on_day_end)
 	if use_planning:
 		EventBus.run_planning_started.emit()   # старт дня запускает PlanningOverlay
 	else:
