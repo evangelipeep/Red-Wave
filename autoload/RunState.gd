@@ -218,6 +218,15 @@ func select_slot(i: int) -> void:
 	if i >= 0 and i < trays.size():
 		selected_slot = i
 
+# Положить поднос в инвентарь (подбор выброшенной еды). false — нет места.
+func add_tray(tray: Dictionary) -> bool:
+	if not can_take_tray():
+		return false
+	trays.append(tray)
+	if selected_slot < 0:
+		selected_slot = trays.size() - 1
+	return true
+
 # Съесть одно блюдо из подноса (только в зоне фуд-корта). Опустевший поднос убираем.
 func eat_from_slot(i: int) -> bool:
 	if i < 0 or i >= trays.size():

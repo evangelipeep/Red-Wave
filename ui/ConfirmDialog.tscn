@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://drwconfirm0001"]
+
+[ext_resource type="Script" path="res://ui/ConfirmDialog.gd" id="1"]
+
+[node name="ConfirmDialog" type="CanvasLayer"]
+layer = 7
+script = ExtResource("1")

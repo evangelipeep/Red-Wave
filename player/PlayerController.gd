@@ -40,6 +40,8 @@ var _rail: Node = null
 
 @onready var _head: Node3D = $Head
 @onready var _cam := $Head/Camera3D as CameraComfort
+var _held_food: MeshInstance3D    # «в руках»: активный поднос (viewmodel у камеры)
+var _held_mat: StandardMaterial3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
 var _was_on_floor: bool = true
 var _water_count: int = 0   # сколько водных зон сейчас перекрываем
@@ -67,6 +69,28 @@ func _ready() -> void:
 		var ws: Area3D = $WaterSensor
 		ws.area_entered.connect(_on_water_entered)
 		ws.area_exited.connect(_on_water_exited)
+	_build_hands()
+
+# Руки: viewmodel активного подноса перед камерой (показываем еду, что держим).
+func _build_hands() -> void:
+	_held_food = MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.22, 0.16, 0.22)
+	_held_food.mesh = bm
+	_held_mat = StandardMaterial3D.new()
+	_held_food.material_override = _held_mat
+	_held_food.position = Vector3(0.32, -0.26, -0.6)   # справа-снизу-впереди
+	_held_food.visible = false
+	_cam.add_child(_held_food)
+
+func _process(_delta: float) -> void:
+	var i := RunState.selected_slot
+	if i >= 0 and i < RunState.trays.size():
+		var tray: Dictionary = RunState.trays[i]
+		_held_mat.albedo_color = tray["color"]
+		_held_food.visible = true
+	else:
+		_held_food.visible = false
 
 func _on_run_started() -> void:
 	_active = true
