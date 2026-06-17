@@ -7,17 +7,21 @@ extends Node
 ## Кооп (этап 5): популярность лавок одна на всех (хост → клиенты). NPC-патроны —
 ## локальные у каждого клиента (как NPC горок), но по общей популярности очереди похожи.
 
-const PICK_R := 2.6     # радиус подбора еды
-const TRASH_R := 3.4    # радиус «у мусорки»
-const PATRON_CAP := 12  # максимум NPC-посетителей фуд-корта одновременно
+const PICK_R := 2.6        # радиус подбора еды
+const TRASH_R := 3.4       # радиус «у мусорки»
+const PATRON_CAP := 12     # максимум NPC-посетителей фуд-корта одновременно
 const SPAWN_EVERY := 2.5
-const MAX_QUEUE := 5    # потолок целевой длины очереди
+const MAX_QUEUE := 5       # потолок целевой длины очереди
+const FALLBACK_FRAC := 30.0 / 720.0   # авто-деспаун бесхозной еды (страховка), 30 игр.мин
 
 var stall_hype: Dictionary = {}   # stall_id -> 20..99 (скрытая популярность дня)
 var _rush: Dictionary = {}        # stall_id -> доля дня пика спроса
 var _spawn_accum := 0.0
+var _dropped: Dictionary = {}     # net_id -> DroppedFood (реестр выброшенной еды)
+var _next_id := 1                 # выдаёт хост/одиночка
 
 func _ready() -> void:
+	add_to_group("food_court_mgr")
 	EventBus.throw_food_pressed.connect(_on_throw)
 	EventBus.interact_pressed.connect(_on_interact)
 	EventBus.run_started.connect(_roll_hype)
@@ -50,6 +54,8 @@ func _sync_hype(hype: Dictionary, rush: Dictionary) -> void:
 	print("[Food] популярность лавок от хоста: %s" % str(stall_hype))
 
 func _spawn_cleaner() -> void:
+	if Net.is_online() and not Net.is_server():
+		return   # в коопе уборку ведёт хост (синхрон удаления еды)
 	if not get_tree().get_nodes_in_group("cleaner").is_empty():
 		return
 	var trash := get_tree().get_first_node_in_group("food_trash")
@@ -66,6 +72,13 @@ func _process(delta: float) -> void:
 	if _spawn_accum >= SPAWN_EVERY:
 		_spawn_accum = 0.0
 		_spawn_tick()
+	# Страховочный деспаун бесхозной еды (ведёт хост/одиночка; уборщик убирает раньше).
+	if (not Net.is_online()) or Net.is_server():
+		var t := Clock.day_fraction
+		for id in _dropped.keys():
+			var f = _dropped[id]
+			if is_instance_valid(f) and t - float(f.spawned_at) >= FALLBACK_FRAC:
+				remove_dropped(int(id))
 
 # Целевая длина очереди лавки = популярность × час-пик × фаза дня (0..MAX_QUEUE).
 func _target_len(sid: String) -> int:
@@ -115,25 +128,46 @@ func _on_throw() -> void:
 					EventBus.toast.emit("Поднос выброшен в мусор."))
 	else:
 		var tray := RunState.drop_tray(slot)
-		if not tray.is_empty():
-			_spawn_dropped(tray, p.global_position)
-			EventBus.toast.emit("Поднос оставлен на полу (можно подобрать).")
+		if tray.is_empty():
+			return
+		var pos := p.global_position + Vector3(0, 0.1, 0)
+		if not Net.is_online():
+			_make_dropped(_next_id, tray["stall_id"], tray["dishes"], tray["color"], pos)
+			_next_id += 1
+		elif Net.is_server():
+			_host_spawn_dropped(tray["stall_id"], tray["dishes"], tray["color"], pos)
+		else:
+			rpc_id(1, "_req_drop", tray["stall_id"], tray["dishes"], tray["color"], pos)
+		EventBus.toast.emit("Поднос оставлен на полу (можно подобрать).")
 
 func _on_interact() -> void:
 	var p := _player()
 	if p == null or not RunState.can_take_tray():
 		return
-	var best: Node3D = null
+	var best := _nearest_dropped(p)
+	if best == null:
+		return
+	if not Net.is_online():
+		var tray: Dictionary = best.tray
+		_destroy(best.net_id)
+		RunState.add_tray(tray)
+		EventBus.toast.emit("Поднос подобран.")
+	elif Net.is_server():
+		if _dropped.has(best.net_id):
+			rpc("_net_pickup", best.net_id, Net.local_id())   # хост сам раздаёт
+	else:
+		rpc_id(1, "_req_pickup", best.net_id, Net.local_id())
+
+func _nearest_dropped(p: Node3D) -> DroppedFood:
+	var best: DroppedFood = null
 	var bd := PICK_R
 	for d in get_tree().get_nodes_in_group("dropped_food"):
-		var node := d as Node3D
+		var node := d as DroppedFood
 		var dist := node.global_position.distance_to(p.global_position)
 		if dist <= bd:
 			bd = dist
 			best = node
-	if best != null and RunState.add_tray(best.tray):
-		best.queue_free()
-		EventBus.toast.emit("Поднос подобран.")
+	return best
 
 func _near_trash(p: Node3D) -> bool:
 	for t in get_tree().get_nodes_in_group("food_trash"):
@@ -141,8 +175,60 @@ func _near_trash(p: Node3D) -> bool:
 			return true
 	return false
 
-func _spawn_dropped(tray: Dictionary, pos: Vector3) -> void:
+# --- Выброшенная еда: сетевая сущность (host-authority спавн/подбор/уборка). ---
+func _make_dropped(id: int, stall_id: String, dishes: Array, color: Color, pos: Vector3) -> void:
 	var f := DroppedFood.new()
-	f.setup(tray)
+	f.net_id = id
+	f.setup({"stall_id": stall_id, "color": color, "dishes": dishes})
 	get_tree().current_scene.add_child(f)
-	f.global_position = pos + Vector3(0, 0.1, 0)
+	f.global_position = pos
+	_dropped[id] = f
+
+func _destroy(id: int) -> void:
+	var f = _dropped.get(id)
+	if f != null and is_instance_valid(f):
+		f.queue_free()
+	_dropped.erase(id)
+
+# Публичный (уборщик/деспаун): убрать еду — в коопе через хоста, иначе локально.
+func remove_dropped(id: int) -> void:
+	if Net.is_online():
+		if Net.is_server():
+			rpc("_net_remove", id)
+	else:
+		_destroy(id)
+
+# Хост: выдать id и разослать спавн всем (включая себя, call_local).
+func _host_spawn_dropped(stall_id: String, dishes: Array, color: Color, pos: Vector3) -> void:
+	var id := _next_id
+	_next_id += 1
+	rpc("_net_spawn", id, stall_id, dishes, color, pos)
+
+@rpc("any_peer", "reliable", "call_remote")
+func _req_drop(stall_id: String, dishes: Array, color: Color, pos: Vector3) -> void:
+	if Net.is_server():
+		_host_spawn_dropped(stall_id, dishes, color, pos)
+
+@rpc("authority", "reliable", "call_local")
+func _net_spawn(id: int, stall_id: String, dishes: Array, color: Color, pos: Vector3) -> void:
+	_make_dropped(id, stall_id, dishes, color, pos)
+
+@rpc("any_peer", "reliable", "call_remote")
+func _req_pickup(id: int, requester: int) -> void:
+	if not Net.is_server() or not _dropped.has(id):
+		return
+	rpc("_net_pickup", id, requester)
+
+@rpc("authority", "reliable", "call_local")
+func _net_pickup(id: int, requester: int) -> void:
+	if not _dropped.has(id):
+		return
+	var tray: Dictionary = _dropped[id].tray
+	_destroy(id)
+	if requester == Net.local_id():
+		RunState.add_tray(tray)
+		EventBus.toast.emit("Поднос подобран.")
+
+@rpc("authority", "reliable", "call_local")
+func _net_remove(id: int) -> void:
+	_destroy(id)

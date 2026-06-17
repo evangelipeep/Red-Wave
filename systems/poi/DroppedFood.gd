@@ -1,21 +1,16 @@
 extends Node3D
 class_name DroppedFood
 ## Поднос, оставленный игроком на полу фуд-корта. Другой игрок может подобрать (E).
-## Бесхозный пропадает через 20 игровых минут (этап 4 — его убирает уборщик-NPC).
-## Сетевая сущность с кросс-подбором — этап 5.
-
-const DESPAWN_MIN := 20.0       # через столько еду убирает уборщик (Cleaner)
-const FALLBACK_MIN := 30.0      # страховочный авто-деспаун, если уборщик не дошёл
-const DAY_MINUTES := 720.0
+## Жизненным циклом (спавн/подбор/уборка/деспаун) управляет FoodCourtManager —
+## в коопе он сетевой (host-authority), поэтому здесь только данные + визуал.
 
 var tray: Dictionary = {}
-var spawned_at: float = 0.0     # доля дня, когда уронили (для уборщика)
-var _despawn_at: float = 1.0
+var spawned_at: float = 0.0     # доля дня, когда уронили (для уборщика/деспауна)
+var net_id: int = -1            # общий id сущности в коопе
 
 func setup(t: Dictionary) -> void:
 	tray = t
 	spawned_at = Clock.day_fraction
-	_despawn_at = Clock.day_fraction + FALLBACK_MIN / DAY_MINUTES
 
 func _ready() -> void:
 	add_to_group("dropped_food")
@@ -36,7 +31,3 @@ func _ready() -> void:
 	lb.modulate = col.lightened(0.4)
 	lb.position = Vector3(0, 0.8, 0)
 	add_child(lb)
-
-func _process(_delta: float) -> void:
-	if Clock.day_fraction >= _despawn_at:
-		queue_free()

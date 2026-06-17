@@ -56,7 +56,11 @@ func _physics_process(delta: float) -> void:
 		_step(_target.global_position, delta)
 		_antistuck(_target.global_position, delta)
 		if _near(_target.global_position):
-			_target.queue_free()
+			var mgr = get_tree().get_first_node_in_group("food_court_mgr")
+			if mgr != null:
+				mgr.remove_dropped(_target.net_id)   # в коопе уборка через хоста
+			else:
+				_target.queue_free()
 			_target = null
 	elif not _near(_home):
 		_step(_home, delta)
