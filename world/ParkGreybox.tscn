@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://world/HypeBoard.gd" id="10"]
 [ext_resource type="Script" path="res://systems/npc/NPCManager.gd" id="11"]
 [ext_resource type="Script" path="res://world/HeartBuilding.gd" id="12"]
+[ext_resource type="Script" path="res://systems/net/CoopManager.gd" id="13"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -46,6 +47,9 @@ script = ExtResource("10")
 [node name="NPCManager" type="Node" parent="."]
 script = ExtResource("11")
 npc_count = 10
+
+[node name="CoopManager" type="Node" parent="."]
+script = ExtResource("13")
 
 [node name="HeartBuilding" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -58, 0, 0)
