@@ -20,11 +20,20 @@ func _ready() -> void:
 	EventBus.scheduled_event.connect(_on_scheduled)
 	EventBus.guard_alert.connect(_on_guard_alert)
 	Clock.day_finished.connect(_on_day_end)
-	# Клиент в сети ждёт день от хоста (CoopManager._sync_session): свой Гул не катит.
-	if Net.is_online() and not Net.is_server():
-		RunState.personal_quest = QuestGenerator.generate_personal()
-		print("[Run] клиент: ожидание дня от хоста…")
-		return
+	# Если сеть уже поднята из cmdline (--host/--join) или режим --single — стартуем сразу.
+	# Иначе ждём выбора в лобби (LobbyOverlay вызовет begin_local/begin_remote).
+	var args := OS.get_cmdline_user_args()
+	if Net.is_online():
+		if Net.is_server():
+			begin_local()
+		else:
+			begin_remote()
+	elif "--single" in args:
+		begin_local()
+	# else: лобби покажет экран и сам вызовет begin_local/begin_remote по кнопке.
+
+## Хост или одиночная: бросает Гул, генерит квест дня, запускает планирование/день.
+func begin_local() -> void:
 	Hype.roll()
 	RunState.main_quest = QuestGenerator.generate_main()
 	RunState.personal_quest = QuestGenerator.generate_personal()
@@ -35,6 +44,11 @@ func _ready() -> void:
 	else:
 		Clock.start_run()
 		EventBus.run_started.emit()
+
+## Клиент в сети: свой Гул не катит, ждёт день от хоста (CoopManager._sync_session).
+func begin_remote() -> void:
+	RunState.personal_quest = QuestGenerator.generate_personal()
+	print("[Run] клиент: ожидание дня от хоста…")
 
 func _on_guard_alert(_level: int) -> void:
 	if _guard_spawned:

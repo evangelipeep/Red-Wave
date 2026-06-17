@@ -9,6 +9,10 @@ signal peer_left(id: int)
 const PORT := 24545
 const MAX_PEERS := 8
 
+# В Godot 4 по умолчанию стоит OfflineMultiplayerPeer, поэтому has_multiplayer_peer()
+# всегда true. Отдельный флаг отличает реальную сессию (host/join) от одиночной.
+var _online: bool = false
+
 func _ready() -> void:
 	multiplayer.peer_connected.connect(_on_peer_connected)
 	multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -27,6 +31,7 @@ func host(port: int = PORT) -> void:
 		push_warning("[Net] не удалось поднять сервер: %d" % err)
 		return
 	multiplayer.multiplayer_peer = peer
+	_online = true
 	print("[Net] ХОСТ на порту %d, id=%d" % [port, multiplayer.get_unique_id()])
 
 func join(ip: String, port: int = PORT) -> void:
@@ -36,13 +41,15 @@ func join(ip: String, port: int = PORT) -> void:
 		push_warning("[Net] не удалось создать клиента: %d" % err)
 		return
 	multiplayer.multiplayer_peer = peer
+	_online = true
 	print("[Net] подключаюсь к %s:%d…" % [ip, port])
 
 func leave() -> void:
 	multiplayer.multiplayer_peer = null
+	_online = false
 
 func is_online() -> bool:
-	return multiplayer.has_multiplayer_peer()
+	return _online
 
 func is_server() -> bool:
 	if is_online():
