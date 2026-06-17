@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://drwstallmenu01"]
+
+[ext_resource type="Script" path="res://ui/StallMenuOverlay.gd" id="1"]
+
+[node name="StallMenuOverlay" type="CanvasLayer"]
+layer = 6
+script = ExtResource("1")

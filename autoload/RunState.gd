@@ -170,6 +170,13 @@ func _on_slide_completed(_player_id: int, slide_id: String) -> void:
 func can_take_tray() -> bool:
 	return trays.size() < MAX_TRAYS
 
+# Есть ли уже выданная пищалка (заказ) этой лавки.
+func has_pending(stall_id: String) -> bool:
+	for o in pending_orders:
+		if o["stall_id"] == stall_id:
+			return true
+	return false
+
 # Оформлен заказ в лавке: выдаём пищалку. ready_at — доля дня готовности.
 func add_pending_order(stall_id: String, ready_at: float, dishes: Array) -> void:
 	pending_orders.append({

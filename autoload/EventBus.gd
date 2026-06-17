@@ -25,4 +25,5 @@ signal guard_alert(level: int)                              # игрок нар�
 signal run_block_changed(blocked: bool)                     # блокировка бега (наказание)
 signal interact_pressed()                                   # игрок нажал E (заказ/забор/подбор еды)
 signal throw_food_pressed()                                 # игрок нажал G (выброс активного подноса)
+signal ui_modal(open: bool)                                 # открыто/закрыто модальное окно (меню/диалог) — заморозка игрока
 @warning_ignore_restore("unused_signal")
