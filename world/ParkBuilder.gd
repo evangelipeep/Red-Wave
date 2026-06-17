@@ -31,6 +31,10 @@ const SHOPS := [
 	{"id": "shop_zero",  "pos": Vector3(-10, 0, -38)},
 ]
 
+# Фуд-корт — открытая правоцентральная площадка (центр кластера).
+const FOOD_COURT := Vector3(40, 0, 46)
+const STALL_IDS: Array[String] = ["fastfood", "mex", "asia", "veg", "coffee"]
+
 var _nav: NavigationRegion3D
 
 func _ready() -> void:
@@ -60,6 +64,7 @@ func _ready() -> void:
 	_build_weigh(Vector3(14, 0, 40))
 	_build_weigh(Vector3(-14, 0, 40))
 	_build_theater(Vector3(0, 0, -8))
+	_build_food_court()
 
 func _build_shop(shop_id: String, pos: Vector3) -> void:
 	var s := ShopPOI.new()
@@ -252,3 +257,69 @@ func _build_theater(pos: Vector3) -> void:
 	var t := TheaterPOI.new()
 	t.position = pos
 	add_child(t)
+
+# --- Фуд-корт: зона + 5 цветных лавок + столы/стулья + мусорка. ---
+func _build_food_court() -> void:
+	var c := FOOD_COURT
+	_build_pad(c, 15.0, Color(0.85, 0.7, 0.45, 0.4))
+	# Зона фуд-корта (флаг in_food_court).
+	var zone := FoodCourtZone.new()
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(40, 6, 22)
+	cs.shape = box
+	zone.add_child(cs)
+	zone.position = c + Vector3(0, 3, -1)
+	add_child(zone)
+	# 5 лавок в ряд по X на задней кромке (фронт смотрит на +Z — туда подходит игрок).
+	var xs := [-14.0, -7.0, 0.0, 7.0, 14.0]
+	for i in 5:
+		var st := StallPOI.new()
+		st.stall_id = STALL_IDS[i]
+		st.position = c + Vector3(xs[i], 0, -6)
+		add_child(st)
+	# Столы со стульями в центре площадки.
+	for tx in [-7.0, 0.0, 7.0]:
+		_build_table(c + Vector3(tx, 0, 5))
+	# Мусорка (чёрный куб) сбоку.
+	_build_trash(c + Vector3(16, 0, 2))
+	_build_label("ФУД-КОРТ", c + Vector3(0, 7, 0), Color(1.0, 0.8, 0.4))
+
+func _build_table(pos: Vector3) -> void:
+	var top := CSGBox3D.new()
+	top.size = Vector3(2.2, 0.16, 1.2)
+	top.position = pos + Vector3(0, 0.92, 0)
+	top.use_collision = true
+	top.material = _mat(Color(0.55, 0.4, 0.3))
+	top.add_to_group("navsource")   # NPC обходят столы
+	add_child(top)
+	var leg := CSGBox3D.new()
+	leg.size = Vector3(0.3, 0.9, 0.3)
+	leg.position = pos + Vector3(0, 0.45, 0)
+	leg.material = _mat(Color(0.4, 0.3, 0.25))
+	add_child(leg)
+	for off in [Vector3(-1.5, 0, 0), Vector3(1.5, 0, 0)]:
+		var chair := CSGBox3D.new()
+		chair.size = Vector3(0.6, 0.5, 0.6)
+		chair.position = pos + off + Vector3(0, 0.25, 0)
+		chair.material = _mat(Color(0.5, 0.45, 0.4))
+		add_child(chair)
+
+func _build_trash(pos: Vector3) -> void:
+	var bin := CSGBox3D.new()
+	bin.size = Vector3(1.2, 1.6, 1.2)
+	bin.position = pos + Vector3(0, 0.8, 0)
+	bin.use_collision = true
+	bin.material = _mat(Color(0.05, 0.05, 0.05))   # чёрный
+	bin.add_to_group("navsource")
+	add_child(bin)
+	var area := Area3D.new()
+	area.add_to_group("food_trash")
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(3, 3, 3)
+	cs.shape = box
+	area.add_child(cs)
+	area.position = pos + Vector3(0, 1.5, 0)
+	add_child(area)
+	_build_label("МУСОР", pos + Vector3(0, 2.6, 0), Color(0.85, 0.85, 0.85))
