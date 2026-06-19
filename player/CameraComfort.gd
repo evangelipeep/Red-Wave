@@ -20,7 +20,9 @@ class_name CameraComfort
 @export_group("Comfort")
 @export var reduce_shake: bool = false   # «снизить тряску»
 
+var nausea: float = 0.0   # 0..1, ставит PlayerController — мутит/качает картинку
 var _bob_t: float = 0.0
+var _naus_t: float = 0.0
 var _base_pos: Vector3
 var _land_offset: float = 0.0
 
@@ -42,6 +44,14 @@ func update_motion(speed_ratio: float, grounded: bool, delta: float, sprinting: 
 		offset.x = cos(_bob_t * TAU * 0.5) * amp * 0.5
 	else:
 		_bob_t = 0.0
+
+	# Тошнота: «мутная» качка камеры (сильнее к полной шкале; comfort гасит).
+	if nausea > 0.0:
+		var n := nausea * (0.35 if reduce_shake else 1.0)
+		_naus_t += delta * 3.2
+		offset.x += sin(_naus_t) * 0.07 * n
+		offset.y += sin(_naus_t * 1.7) * 0.05 * n
+		fov += sin(_naus_t * 0.8) * 2.5 * n
 
 	_land_offset = move_toward(_land_offset, 0.0, delta * 0.6)
 	position = _base_pos + offset + Vector3(0.0, -_land_offset, 0.0)

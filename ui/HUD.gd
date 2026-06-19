@@ -213,7 +213,11 @@ func _update_food_ui() -> void:
 		parts.append(_buff_ru(e))
 	_buffs_label.text = ("Эффекты: " + ", ".join(parts)) if not parts.is_empty() else ""
 
-	var gun := "пистолет (ПКМ)" if RunState.has_gun else ""
+	var gun := ""
+	if RunState.has_gun:
+		var pl = get_tree().get_first_node_in_group("player")
+		var ready: bool = pl == null or float(pl.gun_cooldown_ratio()) >= 1.0
+		gun = "пистолет (ПКМ): " + ("готов" if ready else "перезарядка…")
 	var pill := "таблетки: %d (H)" % RunState.pills if RunState.pills > 0 else ""
 	var items := " · ".join(([pill, gun] as Array).filter(func(s): return s != ""))
 	_items_label.text = ("Предметы: " + items) if items != "" else ""

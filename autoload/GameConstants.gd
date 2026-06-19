@@ -33,6 +33,8 @@ const SNACK_KG: float = 1.0
 const MEAL_KG: float = 2.0
 const TOILET_KG: float = -3.0
 const TOILET_COOLDOWN_FRAC: float = 0.25 # туалет раз в 3 ч (3/12 дня)
+const SPLASH_HEAVY_KG: float = 85.0      # с этого веса всплеск «двойной»
+const SPLASH_HEAVY_DELAY: float = 0.12   # задержка второго звука брызг (тяжёлый игрок)
 
 # --- Сжигание калорий (бег/прыжки > ходьба/плавание) ---
 const CAL_PER_KG: float = 100.0          # калорий на −1 кг

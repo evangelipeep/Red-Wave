@@ -26,6 +26,7 @@ class_name PlayerController
 @export var water_drag: float = 1.5          # сопротивление воды (ниже = дольше скользишь по инерции)
 @export var river_drift: float = 2.5         # сила течения ленивой реки
 @export var splash_sound: AudioStream        # звук брызг (назначь .wav/.ogg в инспекторе)
+@export var gun_sound: AudioStream           # звук выстрела пистолета-отталкивателя
 
 var swimming: bool = false
 var _water_surface_y: float = 0.0           # уровень поверхности текущей воды
@@ -93,6 +94,13 @@ func _process(_delta: float) -> void:
 		_held_food.visible = true
 	else:
 		_held_food.visible = false
+	# Тошнота качает камеру (от WARN до полной) — намёк «пора отдохнуть».
+	var span := float(GameConstants.DIZZY_MAX - GameConstants.NAUSEA_WARN)
+	_cam.nausea = clampf((RunState.dizziness - GameConstants.NAUSEA_WARN) / maxf(span, 1.0), 0.0, 1.0)
+
+# Готовность пистолета 0..1 (1 = готов) — для индикатора в HUD.
+func gun_cooldown_ratio() -> float:
+	return 1.0 - clampf(_gun_cd / GameConstants.GUN_CD, 0.0, 1.0)
 
 func _on_run_started() -> void:
 	_active = true
@@ -159,6 +167,12 @@ func _fire_gun() -> void:
 	if not RunState.has_gun or _gun_cd > 0.0:
 		return
 	_gun_cd = GameConstants.GUN_CD
+	if gun_sound:
+		var a := AudioStreamPlayer.new()
+		a.stream = gun_sound
+		add_child(a)
+		a.play()
+		a.finished.connect(a.queue_free)
 	var origin := global_position
 	var dir := -_cam.global_transform.basis.z
 	dir.y = 0.0
@@ -387,15 +401,25 @@ func _spawn_splash(strength: float) -> void:
 	p.emitting = true
 	get_tree().create_timer(p.lifetime + 0.3).timeout.connect(p.queue_free)
 
-	# Звук (громче с силой удара) — только если назначен ассет.
+	# Звук брызг (громче с силой удара) — только если назначен ассет.
+	# Тяжёлый игрок (≥85 кг): второй всплеск с задержкой — кажется, что брызг больше.
 	if splash_sound:
-		var a := AudioStreamPlayer3D.new()
-		a.stream = splash_sound
-		a.volume_db = lerpf(-12.0, 6.0, clampf(strength / 4.0, 0.0, 1.0))
-		host.add_child(a)
-		a.global_position = splash_pos
-		a.play()
-		a.finished.connect(a.queue_free)
+		_play_splash_sound(splash_pos, strength)
+		if WeightSystem.kg >= GameConstants.SPLASH_HEAVY_KG:
+			get_tree().create_timer(GameConstants.SPLASH_HEAVY_DELAY).timeout.connect(
+				func(): _play_splash_sound(splash_pos, strength * 0.85))
+
+func _play_splash_sound(pos: Vector3, strength: float) -> void:
+	var host := get_tree().current_scene
+	if host == null or splash_sound == null:
+		return
+	var a := AudioStreamPlayer3D.new()
+	a.stream = splash_sound
+	a.volume_db = lerpf(-12.0, 6.0, clampf(strength / 4.0, 0.0, 1.0))
+	host.add_child(a)
+	a.global_position = pos
+	a.play()
+	a.finished.connect(a.queue_free)
 
 # --- Регистрация управления (физические клавиши). ---
 # Делаем в коде, чтобы прототип работал без ручной настройки Input Map.

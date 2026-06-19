@@ -89,6 +89,7 @@ func _build_visual() -> void:
 		water.position = Vector3(0, 0.65, 0)
 		water.material = _mat(col, true)
 		add_child(water)
+		_add_steam(1.0)   # пар/пузырьки над водой
 	else:
 		# Сауна/баня: деревянная изба.
 		var hut := CSGBox3D.new()
@@ -103,6 +104,7 @@ func _build_visual() -> void:
 		roof.position = Vector3(0, 3.1, 0)
 		roof.material = _mat(col.darkened(0.3))
 		add_child(roof)
+		_add_steam(3.4)   # пар из бани/сауны
 	var label := Label3D.new()
 	label.text = _title()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -112,6 +114,35 @@ func _build_visual() -> void:
 	label.modulate = col.lightened(0.4)
 	label.position = Vector3(0, 3.7, 0)
 	add_child(label)
+
+# Лёгкий пар, медленно поднимающийся вверх.
+func _add_steam(height: float) -> void:
+	var steam := GPUParticles3D.new()
+	steam.amount = 14
+	steam.lifetime = 2.8
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(1.4, 0.1, 1.4)
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 12.0
+	pm.initial_velocity_min = 0.3
+	pm.initial_velocity_max = 0.7
+	pm.gravity = Vector3(0, 0.25, 0)
+	pm.scale_min = 0.4
+	pm.scale_max = 0.9
+	pm.color = Color(1, 1, 1, 0.22)
+	steam.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.7, 0.7)
+	var qm := StandardMaterial3D.new()
+	qm.albedo_color = Color(1, 1, 1, 0.22)
+	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	qm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	quad.material = qm
+	steam.draw_pass_1 = quad
+	steam.position = Vector3(0, height, 0)
+	add_child(steam)
 
 func _mat(c: Color, transparent: bool = false) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
