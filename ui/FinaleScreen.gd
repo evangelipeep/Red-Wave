@@ -27,7 +27,7 @@ func _format() -> String:
 	s += "   Калорий сожжено: %.0f\n" % WeightSystem.calories_burned
 	s += "   Вес: финиш %.1f кг  (мин %.1f / макс %.1f)\n" % [
 		WeightSystem.kg, WeightSystem.weight_min, WeightSystem.weight_max]
-	s += "   Голова (пик за день): %d/%d\n" % [RunState.dizziness_peak, GameConstants.DIZZY_MAX]
+	s += "   Тошнота (пик за день): %d/%d\n" % [RunState.dizziness_peak, GameConstants.DIZZY_MAX]
 	s += "   Монет осталось: %d\n\n" % RunState.coins
 	var status := "ВЫПОЛНЕН ✓" if QuestTracker.quest_complete() else "не выполнен"
 	s += "Главный квест: %s\n" % status

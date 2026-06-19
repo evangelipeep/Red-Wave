@@ -41,8 +41,10 @@ const CAL_RUN: float = 3.0              # в секунду при беге
 const CAL_SWIM: float = 0.8             # в секунду при плавании
 const CAL_JUMP: float = 4.0             # за прыжок
 
-# --- Головокружение ---
-const DIZZY_MAX: int = 5
+# --- Тошнота/укачивание (зелёная HP-шкала) ---
+const DIZZY_MAX: int = 10              # полная шкала → кататься нельзя, надо отдохнуть
+const NAUSEA_RIDE_BASE: int = 1        # гарантированный прирост за любой заезд (+ тег dizzy горки)
+const NAUSEA_WARN: int = 7             # с этого уровня предупреждаем игрока
 
 # --- Экономика ---
 const COINS_START: int = 10

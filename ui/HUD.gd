@@ -48,7 +48,13 @@ func _process(delta: float) -> void:
 		_weight_band(), WeightSystem.burn_progress() * 100.0]
 	_coins.text = "Монеты: %d" % RunState.coins
 	_score.text = "Очки: %d" % RunState.score
-	_dizzy.text = "Голова: %d/%d" % [RunState.dizziness, GameConstants.DIZZY_MAX]
+	_dizzy.text = "Тошнота: %s %d/%d" % [_nausea_bar(), RunState.dizziness, GameConstants.DIZZY_MAX]
+	if RunState.dizziness >= GameConstants.DIZZY_MAX:
+		_dizzy.modulate = Color(1.0, 0.3, 0.3)        # полная — красная
+	elif RunState.dizziness >= GameConstants.NAUSEA_WARN:
+		_dizzy.modulate = Color(1.0, 0.7, 0.3)        # высокая — оранжевая
+	else:
+		_dizzy.modulate = Color(0.4, 0.9, 0.4)        # норма — зелёная (как HP)
 	if WeightSystem.can_toilet():
 		_toilet.text = "Туалет: готов"
 	else:
@@ -86,6 +92,12 @@ func _objective_text() -> String:
 	if todo == "":
 		todo = "всё выполнено ✓"
 	return "Цель (%d/%d): %s" % [done, total, todo]
+
+func _nausea_bar() -> String:
+	var s := ""
+	for i in GameConstants.DIZZY_MAX:
+		s += "█" if i < RunState.dizziness else "░"
+	return s
 
 func _weight_band() -> String:
 	if not WeightSystem.can_ride_extreme():

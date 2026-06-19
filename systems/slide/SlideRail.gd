@@ -443,6 +443,9 @@ func _on_board_entered(body: Node3D) -> void:
 		EventBus.toast.emit("Занято — подождите")
 		return
 	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
+	if RunState.is_too_sick():
+		EventBus.toast.emit("🤢 Тебя укачало — сначала отдохни (спа/еда/театр).")
+		return
 	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
 		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
 		return

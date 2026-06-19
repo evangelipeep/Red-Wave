@@ -35,7 +35,7 @@ var _legit_rides_since_block: int = 0
 var _zones_visited: Dictionary = {}  # для бонуса «первопроходец зоны»
 var _dizzy_decay_accum: float = 0.0
 
-const DIZZY_DECAY_EVERY := 6.0   # сек на −1 головокружения
+const DIZZY_DECAY_EVERY := 9.0   # сек на −1 тошноты (медленно; основное лечение — спа/еда/театр)
 
 func _ready() -> void:
 	EventBus.slide_completed.connect(_on_slide_completed)
@@ -151,16 +151,26 @@ func _process(delta: float) -> void:
 		_dizzy_decay_accum = 0.0
 		add_dizziness(-1)
 
+# Слишком укачало — на горки не пускают (нужно отдохнуть).
+func is_too_sick() -> bool:
+	return dizziness >= GameConstants.DIZZY_MAX
+
 func add_dizziness(delta: int) -> void:
+	var prev := dizziness
 	dizziness = clampi(dizziness + delta, 0, GameConstants.DIZZY_MAX)
 	dizziness_peak = maxi(dizziness_peak, dizziness)
+	if delta > 0:
+		if dizziness >= GameConstants.DIZZY_MAX and prev < GameConstants.DIZZY_MAX:
+			EventBus.toast.emit("🤢 Тебя сильно укачало! Кататься нельзя — отдохни в спа (онсен/джакузи/сауна), поешь или сходи в театр.")
+		elif dizziness >= GameConstants.NAUSEA_WARN and prev < GameConstants.NAUSEA_WARN:
+			EventBus.toast.emit("Подташнивает… скоро не сможешь кататься. Стоит отдохнуть или поесть.")
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
 
-# Горка добавляет головокружение по своему тегу dizzy.
+# Горка гарантированно укачивает: база + тег dizzy горки.
 func _on_slide_completed(_player_id: int, slide_id: String) -> void:
 	rides_total += 1
 	var info: Dictionary = Slides.SLIDES.get(slide_id, {})
-	add_dizziness(int(info.get("dizzy", 0)))
+	add_dizziness(GameConstants.NAUSEA_RIDE_BASE + int(info.get("dizzy", 0)))
 
 # =========================================================================
 #  Фуд-корт: заказы (пищалки) → подносы (инвентарь ≤4) → еда в зоне (этап 1).
