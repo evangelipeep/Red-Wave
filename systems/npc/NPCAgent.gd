@@ -25,8 +25,13 @@ var _stuck_t: float = 0.0
 var _grav: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
 var _col: CollisionShape3D
 var _nav: NavigationAgent3D
+var _knock: Vector3 = Vector3.ZERO
+
+func apply_knock(v: Vector3) -> void:
+	_knock = v
 
 func _ready() -> void:
+	add_to_group("knockable")
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.35
 	cap.height = 1.7
@@ -67,6 +72,12 @@ func _behavior_color() -> Color:
 		_: return Color(0.6, 0.9, 0.5)                 # расслабленный — зелёный
 
 func _physics_process(delta: float) -> void:
+	if _knock.length() > 0.3 and state != St.RIDING and state != St.EXIT:
+		velocity = _knock
+		velocity.y = (velocity.y - _grav * delta) if not is_on_floor() else 0.0
+		move_and_slide()
+		_knock = _knock.move_toward(Vector3.ZERO, delta * 18.0)
+		return
 	if slide == null:
 		return
 	match state:

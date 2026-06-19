@@ -50,6 +50,8 @@ var _active: bool = false   # игрок управляем только во в
 var _map_open: bool = false # открыта карта M — управление заморожено (без паузы мира)
 var _ui_modal: bool = false # открыто модальное окно (меню лавки/диалог) — заморозка
 var _ping_cd: float = 0.0   # кулдаун пинга
+var _gun_cd: float = 0.0    # кулдаун пистолета
+var _knock: Vector3 = Vector3.ZERO   # импульс отталкивания (от пистолета)
 
 # Палитра цветов игроков для пингов/меток (MARKER_COLORS = 4).
 const PING_COLORS := [
@@ -141,12 +143,47 @@ func _unhandled_input(event: InputEvent) -> void:
 		_interact()
 	elif event.is_action_pressed("throw_food"):
 		_throw_food()
+	elif event.is_action_pressed("use_pill"):
+		RunState.use_pill()
+	elif event.is_action_pressed("fire_gun"):
+		_fire_gun()
 	elif event.is_action_pressed("toilet"):
 		if not WeightSystem.toilet():
 			EventBus.toast.emit("Туалет недоступен — раз в 3 часа (ещё %.1f ч)"
 				% WeightSystem.toilet_ready_in_hours())
 	elif event.is_action_pressed("ping"):
 		_do_ping()
+
+# Пистолет-отталкиватель: толкает NPC (локально) и других игроков (по сети) перед собой.
+func _fire_gun() -> void:
+	if not RunState.has_gun or _gun_cd > 0.0:
+		return
+	_gun_cd = GameConstants.GUN_CD
+	var origin := global_position
+	var dir := -_cam.global_transform.basis.z
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	dir = dir.normalized()
+	for n in get_tree().get_nodes_in_group("knockable"):
+		var body: Node3D = n
+		if body == self:
+			continue
+		var to := body.global_position - origin
+		to.y = 0.0
+		var d := to.length()
+		if d > GameConstants.GUN_RANGE or d < 0.1:
+			continue
+		if dir.dot(to / d) < GameConstants.GUN_CONE:
+			continue
+		body.call("apply_knock", to.normalized() * GameConstants.GUN_FORCE + Vector3(0, 5, 0))
+	var coop = get_tree().get_first_node_in_group("coop")   # untyped → динамический вызов
+	if coop != null:
+		coop.push_players(origin, dir, GameConstants.GUN_RANGE, GameConstants.GUN_CONE, GameConstants.GUN_FORCE)
+
+# Получить толчок (от чужого пистолета по сети или локально).
+func apply_knock(v: Vector3) -> void:
+	_knock = v
 
 # Взаимодействие (E): заказать/забрать у лавки, подобрать выброшенную еду.
 # Логику лавок/еды подключит этап 3 (StallPOI/выброшенная еда сами слушают присутствие).
@@ -162,10 +199,19 @@ func _throw_food() -> void:
 func _physics_process(delta: float) -> void:
 	if _ping_cd > 0.0:
 		_ping_cd -= delta
+	if _gun_cd > 0.0:
+		_gun_cd -= delta
 	if not _active or _map_open or _ui_modal:
 		return          # планирование/карта/меню — игрок заморожен (мир продолжает идти)
 	if riding:
 		return          # позицию задаёт SlideRail через ride_to()
+	if _knock.length() > 0.3:   # отбрасывание пистолетом
+		velocity = _knock
+		if not is_on_floor():
+			velocity.y -= _gravity * delta
+		move_and_slide()
+		_knock = _knock.move_toward(Vector3.ZERO, delta * 18.0)
+		return
 	if swimming:
 		_swim(delta)
 	else:
@@ -370,9 +416,11 @@ func _ensure_inputs() -> void:
 	_add_key("inv_2", KEY_2)
 	_add_key("inv_3", KEY_3)
 	_add_key("inv_4", KEY_4)
+	_add_key("use_pill", KEY_H)       # таблетка от тошноты
 	_add_key("toilet", KEY_T)
 	_add_key("map", KEY_M)
 	_add_mouse("ping", MOUSE_BUTTON_MIDDLE)
+	_add_mouse("fire_gun", MOUSE_BUTTON_RIGHT)   # пистолет-отталкиватель
 
 func _add_mouse(action: String, button: MouseButton) -> void:
 	if not InputMap.has_action(action):

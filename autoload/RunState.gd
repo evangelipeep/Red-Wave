@@ -31,6 +31,10 @@ var trays: Array = []                 # забранные подносы (≤4)
 var selected_slot: int = -1           # активный слот подноса (для еды/рук/выброса)
 
 const MAX_TRAYS := 4
+
+# --- Предметы ---
+var pills: int = 0                    # таблетки от тошноты
+var has_gun: bool = false             # куплен пистолет-отталкиватель
 var _legit_rides_since_block: int = 0
 var _zones_visited: Dictionary = {}  # для бонуса «первопроходец зоны»
 var _dizzy_decay_accum: float = 0.0
@@ -67,6 +71,8 @@ func reset() -> void:
 	pending_orders.clear()
 	trays.clear()
 	selected_slot = -1
+	pills = 0
+	has_gun = false
 	_legit_rides_since_block = 0
 	_zones_visited.clear()
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
@@ -282,3 +288,36 @@ func _fix_selected() -> void:
 		selected_slot = -1
 	else:
 		selected_slot = clampi(selected_slot, 0, trays.size() - 1)
+
+# --- Предметы: таблетки и пистолет (магазин ItemShopPOI). ---
+func buy_pill() -> bool:
+	if coins < GameConstants.PILL_COST:
+		EventBus.toast.emit("Не хватает монет на таблетку (нужно %d)." % GameConstants.PILL_COST)
+		return false
+	coins -= GameConstants.PILL_COST
+	pills += 1
+	EventBus.toast.emit("Куплена таблетка от тошноты (всего %d)." % pills)
+	return true
+
+func buy_gun() -> bool:
+	if has_gun:
+		EventBus.toast.emit("Пистолет уже куплен.")
+		return false
+	if coins < GameConstants.GUN_COST:
+		EventBus.toast.emit("Не хватает монет на пистолет (нужно %d)." % GameConstants.GUN_COST)
+		return false
+	coins -= GameConstants.GUN_COST
+	has_gun = true
+	EventBus.toast.emit("Куплен пистолет-отталкиватель! ПКМ — толкать.")
+	return true
+
+func use_pill() -> bool:
+	if pills <= 0:
+		EventBus.toast.emit("Нет таблеток от тошноты.")
+		return false
+	pills -= 1
+	dizziness = 0
+	dizziness_peak = maxi(dizziness_peak, 0)
+	EventBus.dizziness_changed.emit(Net.local_id(), 0)
+	EventBus.toast.emit("Таблетка: тошнота снята! (таблеток: %d)" % pills)
+	return true

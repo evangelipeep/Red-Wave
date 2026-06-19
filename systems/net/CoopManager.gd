@@ -172,3 +172,24 @@ func _on_peer_left(id: int) -> void:
 	if _avatars.has(id):
 		(_avatars[id] as Node).queue_free()
 		_avatars.erase(id)
+
+# --- Пистолет: толкнуть других игроков (по их аватарам шлём импульс их клиентам). ---
+func push_players(origin: Vector3, dir: Vector3, reach: float, cone: float, force: float) -> void:
+	if not Net.is_online():
+		return
+	for id in _avatars:
+		var av := _avatars[id] as Node3D
+		var to := av.global_position - origin
+		to.y = 0.0
+		var d := to.length()
+		if d > reach or d < 0.1:
+			continue
+		if dir.dot(to / d) < cone:
+			continue
+		rpc_id(int(id), "_recv_knock", to.normalized() * force + Vector3(0, 5, 0))
+
+@rpc("any_peer", "reliable", "call_remote")
+func _recv_knock(impulse: Vector3) -> void:
+	var p = get_tree().get_first_node_in_group("player")   # untyped → динамический вызов
+	if p != null:
+		p.apply_knock(impulse)

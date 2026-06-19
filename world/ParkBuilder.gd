@@ -66,6 +66,9 @@ func _ready() -> void:
 	_build_theater(Vector3(0, 0, -8))
 	_build_food_court()
 	_build_spa()
+	var itemshop := ItemShopPOI.new()
+	itemshop.position = Vector3(22, 0, 33)   # у входа на фуд-корт
+	add_child(itemshop)
 
 func _build_shop(shop_id: String, pos: Vector3) -> void:
 	var s := ShopPOI.new()

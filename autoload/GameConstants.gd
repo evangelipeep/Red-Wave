@@ -51,6 +51,14 @@ const COINS_START: int = 10
 const THRIFT_DIV: int = 2
 const THRIFT_CAP: int = 5
 
+# --- Предметы (магазин) ---
+const PILL_COST: int = 3        # таблетка от тошноты (тошнота → 0)
+const GUN_COST: int = 8         # пистолет-отталкиватель (разово)
+const GUN_RANGE: float = 9.0    # дальность толчка
+const GUN_CONE: float = 0.45    # ширина конуса (dot-порог)
+const GUN_FORCE: float = 14.0   # сила отталкивания
+const GUN_CD: float = 0.8       # перезарядка
+
 # --- Квесты ---
 const D_TARGET: float = 14.0
 const D_TOL: float = 2.0

@@ -23,6 +23,7 @@ var _queue_text: String = ""
 var _slots: Array = []        # [{panel, swatch, label}] ×4
 var _buzz: Array = []         # [{chip, dot, label}] ×5
 var _buffs_label: Label
+var _items_label: Label
 
 func _ready() -> void:
 	_toast.text = ""
@@ -175,6 +176,11 @@ func _build_food_ui() -> void:
 	_buffs_label.modulate = Color(0.6, 1.0, 0.8)
 	$VBox.add_child(_buffs_label)
 
+	_items_label = Label.new()
+	_items_label.add_theme_font_size_override("font_size", 15)
+	_items_label.modulate = Color(0.7, 0.9, 1.0)
+	$VBox.add_child(_items_label)
+
 func _update_food_ui() -> void:
 	for i in 4:
 		var s: Dictionary = _slots[i]
@@ -206,6 +212,11 @@ func _update_food_ui() -> void:
 	for e in PlayerBuffs.active_list():
 		parts.append(_buff_ru(e))
 	_buffs_label.text = ("Эффекты: " + ", ".join(parts)) if not parts.is_empty() else ""
+
+	var gun := "пистолет (ПКМ)" if RunState.has_gun else ""
+	var pill := "таблетки: %d (H)" % RunState.pills if RunState.pills > 0 else ""
+	var items := " · ".join(([pill, gun] as Array).filter(func(s): return s != ""))
+	_items_label.text = ("Предметы: " + items) if items != "" else ""
 
 func _buff_ru(e: Dictionary) -> String:
 	var names := {
