@@ -65,6 +65,7 @@ func _ready() -> void:
 	_build_weigh(Vector3(-14, 0, 40))
 	_build_theater(Vector3(0, 0, -8))
 	_build_food_court()
+	_build_spa()
 
 func _build_shop(shop_id: String, pos: Vector3) -> void:
 	var s := ShopPOI.new()
@@ -304,6 +305,23 @@ func _build_table(pos: Vector3) -> void:
 		chair.position = pos + off + Vector3(0, 0.25, 0)
 		chair.material = _mat(Color(0.5, 0.45, 0.4))
 		add_child(chair)
+
+# --- Спа-комплекс: онсен, джакузи, финская сауна, русская баня (лечат тошноту). ---
+func _build_spa() -> void:
+	var c := Vector3(-40, 0, 44)
+	_build_pad(c, 14.0, Color(0.55, 0.8, 0.95, 0.35))
+	var spa := [
+		{"type": "onsen",     "off": Vector3(-6, 0, -2)},
+		{"type": "jacuzzi",   "off": Vector3(6, 0, -2)},
+		{"type": "sauna_fin", "off": Vector3(-6, 0, 7)},
+		{"type": "banya",     "off": Vector3(6, 0, 7)},
+	]
+	for s in spa:
+		var poi := SpaPOI.new()
+		poi.spa_type = s["type"]
+		poi.position = c + s["off"]
+		add_child(poi)
+	_build_label("СПА-КОМПЛЕКС", c + Vector3(0, 7, 0), Color(0.6, 0.85, 1.0))
 
 func _build_trash(pos: Vector3) -> void:
 	var bin := CSGBox3D.new()

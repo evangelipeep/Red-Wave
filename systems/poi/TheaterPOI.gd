@@ -16,6 +16,7 @@ var _running_slot: int = -1
 var _awarded_slot: int = -1
 var _entered_for_show: bool = false
 var _toast_acc: float = 0.0
+var _nausea_acc: float = 0.0   # лечение тошноты, пока сидишь в театре
 
 func _ready() -> void:
 	add_to_group("poi_theater")
@@ -88,6 +89,13 @@ func _process(delta: float) -> void:
 		_gate.use_collision = solid
 		_gate.visible = solid
 
+	# Пока сидишь в театре — потихоньку отпускает тошнота (релакс зрелищем).
+	if player_inside and RunState.dizziness > 0:
+		_nausea_acc += 0.6 * delta
+		while _nausea_acc >= 1.0:
+			_nausea_acc -= 1.0
+			RunState.add_dizziness(-1)
+
 	_toast_acc -= delta
 	if player_inside and _toast_acc <= 0.0 and _slot_i >= 0:
 		_toast_acc = 3.0
@@ -105,7 +113,8 @@ func _process(delta: float) -> void:
 		if _entered_for_show and player_inside and _awarded_slot != _running_slot:
 			_awarded_slot = _running_slot
 			RunState.add_score(GameConstants.SHOW_PTS)
-			EventBus.toast.emit("Спасибо за посещение! +%d очков" % GameConstants.SHOW_PTS)
+			RunState.add_dizziness(-5)   # отдохнул на шоу — тошнота отступила
+			EventBus.toast.emit("Спасибо за посещение! +%d очков, тошнота спала." % GameConstants.SHOW_PTS)
 		_entered_for_show = false
 	_shown_phase = _phase
 
