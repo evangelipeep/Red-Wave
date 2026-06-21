@@ -98,6 +98,7 @@ func _process(_delta: float) -> void:
 	# Тошнота качает камеру (от WARN до полной) — намёк «пора отдохнуть».
 	var span := float(GameConstants.DIZZY_MAX - GameConstants.NAUSEA_WARN)
 	_cam.nausea = clampf((RunState.dizziness - GameConstants.NAUSEA_WARN) / maxf(span, 1.0), 0.0, 1.0)
+	_cam.heavy = WeightSystem.heavy01()   # >90 кг — тяжёлая косолапая походка
 
 # Готовность пистолета 0..1 (1 = готов) — для индикатора в HUD.
 func gun_cooldown_ratio() -> float:
@@ -245,6 +246,7 @@ func _walk(delta: float) -> void:
 	var sprinting := Input.is_action_pressed("sprint") and moving and not RunState.run_blocked
 	var target_speed := sprint_speed if sprinting else walk_speed
 	target_speed *= PlayerBuffs.move_speed_mult()   # кофеин ×2 / тяжесть ×0.8 (еда)
+	target_speed *= WeightSystem.move_factor()      # >90 кг — чуть медленнее пешком
 	var accel := ground_accel if is_on_floor() else air_accel
 
 	var horiz := Vector3(velocity.x, 0.0, velocity.z)

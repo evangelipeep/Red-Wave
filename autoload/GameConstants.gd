@@ -29,6 +29,9 @@ const WEIGHT_MAX: float = 100.0          # потолок набора
 const WEIGHT_LOCK: float = 91.0          # >= → не пускают на экстрим (тост)
 const SPEED_AT_70: float = 0.85
 const SPEED_AT_90: float = 1.15
+const SPEED_AT_100: float = 1.30         # ещё тяжелее → ещё быстрее спуск (90..100)
+const HEAVY_KG: float = 90.0             # с этого веса — «толстый»: походка/скорость/модель
+const HEAVY_MOVE_FACTOR: float = 0.82    # пеший множитель скорости при 100 кг (плавно от 90)
 const SNACK_KG: float = 1.0
 const MEAL_KG: float = 2.0
 const TOILET_KG: float = -3.0

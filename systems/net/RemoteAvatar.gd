@@ -7,20 +7,22 @@ var _target_pos: Vector3 = Vector3.ZERO
 var _target_yaw: float = 0.0
 var _mat: StandardMaterial3D
 var _label: Label3D
+var _mesh: MeshInstance3D
+var _heavy: bool = false
 
 func _ready() -> void:
-	var mesh := MeshInstance3D.new()
+	_mesh = MeshInstance3D.new()
 	var cm := CapsuleMesh.new()
 	cm.radius = 0.35
 	cm.height = 1.7
-	mesh.mesh = cm
+	_mesh.mesh = cm
 	_mat = StandardMaterial3D.new()
 	_mat.albedo_color = Color(1.0, 0.85, 0.2)   # пока имя не пришло — золотистый
 	_mat.emission_enabled = true
 	_mat.emission = _mat.albedo_color * 0.4
-	mesh.material_override = _mat
-	mesh.position = Vector3(0, 0.9, 0)
-	add_child(mesh)
+	_mesh.material_override = _mat
+	_mesh.position = Vector3(0, 0.9, 0)
+	add_child(_mesh)
 	_label = Label3D.new()
 	_label.text = "ИГРОК"
 	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -33,6 +35,13 @@ func _ready() -> void:
 func set_target(pos: Vector3, yaw: float) -> void:
 	_target_pos = pos
 	_target_yaw = yaw
+
+# «Толстая» версия модели (≥90 кг): шире капсула (так тебя видят другие игроки).
+func set_heavy(h: bool) -> void:
+	if h == _heavy or _mesh == null:
+		return
+	_heavy = h
+	_mesh.scale = Vector3(1.6, 1.0, 1.6) if h else Vector3.ONE
 
 ## Имя и цвет другого игрока (приходят по сети один раз при подключении).
 ## NB: не «set_identity» — это встроенный метод Node3D (сброс трансформа).

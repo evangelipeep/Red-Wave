@@ -25,14 +25,26 @@ func reset() -> void:
 	_last_toilet_frac = -1.0
 	EventBus.weight_changed.emit(Net.local_id(), kg)
 
-# Множитель скорости спуска от веса.
+# Множитель скорости спуска от веса: 70→0.85, 90→1.15, 100→1.30 (тяжелее = быстрее/мощнее).
 func speed_factor() -> float:
 	var w := clampf(kg, GameConstants.WEIGHT_MIN, GameConstants.WEIGHT_MAX)
 	return clampf(GameConstants.SPEED_AT_70 + (w - 70.0) * 0.015,
-		GameConstants.SPEED_AT_70, GameConstants.SPEED_AT_90)
+		GameConstants.SPEED_AT_70, GameConstants.SPEED_AT_100)
 
 func can_ride_extreme() -> bool:
 	return not _extreme_locked
+
+# «Толстый» (≥90 кг): меняется походка/скорость/модель, часть экстрима под запретом.
+func is_heavy() -> bool:
+	return kg >= GameConstants.HEAVY_KG
+
+# 0 при ≤90 кг → 1 при 100 кг (плавная сила эффектов походки/камеры/модели).
+func heavy01() -> float:
+	return clampf((kg - GameConstants.HEAVY_KG) / (GameConstants.WEIGHT_MAX - GameConstants.HEAVY_KG), 0.0, 1.0)
+
+# Пеший множитель скорости: 1.0 до 90 кг, плавно до HEAVY_MOVE_FACTOR к 100 кг.
+func move_factor() -> float:
+	return lerpf(1.0, GameConstants.HEAVY_MOVE_FACTOR, heavy01())
 
 # Съесть блюдо: добавить его вес (kg задаётся блюдом в data/food_menu.gd).
 func eat(kg_amount: float) -> void:

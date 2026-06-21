@@ -4,7 +4,7 @@ extends Node
 
 const SLIDES: Dictionary = {
 	# --- Северный Клык ---
-	"klyk":        {"zone":"klyk",  "dizzy":3, "type":["spusk","bashnya"],      "sensation":"padenie",     "temp":"neutral", "extreme":true,  "calm":false},
+	"klyk":        {"zone":"klyk",  "dizzy":3, "type":["spusk","bashnya"],      "sensation":"padenie",     "temp":"neutral", "extreme":true,  "calm":false, "heavy_ban":true},
 	"plashch":     {"zone":"klyk",  "dizzy":2, "type":["truba","temnota"],      "sensation":"mrak",        "temp":"ice",     "extreme":false, "calm":false},
 	"krylo":       {"zone":"klyk",  "dizzy":2, "type":["zhelob"],               "sensation":"nevesomost",  "temp":"neutral", "extreme":false, "calm":false},
 	"vitrazh":     {"zone":"klyk",  "dizzy":1, "type":["truba"],                "sensation":"pogruzhenie", "temp":"warm",    "extreme":false, "calm":false},
@@ -16,7 +16,7 @@ const SLIDES: Dictionary = {
 	"roy":         {"zone":"delta", "dizzy":1, "type":["gonka","gruppovaya"],   "sensation":"skolzhenie",  "temp":"neutral", "extreme":false, "calm":false},
 	"mangry":      {"zone":"delta", "dizzy":0, "type":["lodki","temnota"],      "sensation":"mrak",        "temp":"warm",    "extreme":false, "calm":true},
 	# --- Серый Пояс Зеро ---
-	"vabank":      {"zone":"zero",  "dizzy":3, "type":["spusk","kapsula"],      "sensation":"padenie",     "temp":"neutral", "extreme":true,  "calm":false},
+	"vabank":      {"zone":"zero",  "dizzy":3, "type":["spusk","kapsula"],      "sensation":"padenie",     "temp":"neutral", "extreme":true,  "calm":false, "heavy_ban":true},
 	"ruletka":     {"zone":"zero",  "dizzy":2, "type":["voronka","gruppovaya"], "sensation":"kruzhenie",   "temp":"neutral", "extreme":false, "calm":false},
 	"dzhekpot":    {"zone":"zero",  "dizzy":2, "type":["truba","random"],       "sensation":"pogruzhenie", "temp":"neutral", "extreme":false, "calm":false},
 	"razmen":      {"zone":"zero",  "dizzy":1, "type":["truba","random"],       "sensation":"skolzhenie",  "temp":"ice",     "extreme":false, "calm":false},

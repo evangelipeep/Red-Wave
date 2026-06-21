@@ -21,6 +21,7 @@ class_name CameraComfort
 @export var reduce_shake: bool = false   # «снизить тряску»
 
 var nausea: float = 0.0   # 0..1, ставит PlayerController — мутит/качает картинку
+var heavy: float = 0.0    # 0..1 (вес 90→100): тяжёлая косолапая походка
 var _bob_t: float = 0.0
 var _naus_t: float = 0.0
 var _base_pos: Vector3
@@ -38,10 +39,13 @@ func update_motion(speed_ratio: float, grounded: bool, delta: float, sprinting: 
 
 	var amp := headbob_amp * (0.3 if reduce_shake else 1.0)
 	var offset := Vector3.ZERO
+	# Тяжёлый (>90 кг): шаги реже, сильнее раскачка вбок — «косолапая», переваливающаяся
+	# походка. Эффект мягкий (heavy 0..1), comfort (reduce_shake) дополнительно гасит.
+	var hv := heavy * (0.4 if reduce_shake else 1.0)
 	if headbob_enabled and grounded and speed_ratio > 0.05:
-		_bob_t += delta * headbob_freq * maxf(speed_ratio, 0.4)
-		offset.y = sin(_bob_t * TAU) * amp
-		offset.x = cos(_bob_t * TAU * 0.5) * amp * 0.5
+		_bob_t += delta * headbob_freq * lerpf(1.0, 0.78, hv) * maxf(speed_ratio, 0.4)
+		offset.y = sin(_bob_t * TAU) * amp * lerpf(1.0, 1.25, hv)        # тяжелее ступаешь
+		offset.x = cos(_bob_t * TAU * 0.5) * amp * lerpf(0.5, 1.6, hv)   # шире вбок (вперевалку)
 	else:
 		_bob_t = 0.0
 

@@ -101,8 +101,8 @@ func _nausea_bar() -> String:
 	return s
 
 func _weight_band() -> String:
-	if not WeightSystem.can_ride_extreme():
-		return "⛔ перебор — на экстрим не пустят"
+	if WeightSystem.is_heavy():
+		return "🐘 толстый (>90): с горок быстрее, часть экстрима закрыта"
 	if WeightSystem.kg >= 88.0:
 		return "тяжеловато"
 	if WeightSystem.kg <= 73.0:

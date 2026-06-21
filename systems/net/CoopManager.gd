@@ -121,7 +121,7 @@ func _process(delta: float) -> void:
 		_send_accum = 0.0
 		var p := get_tree().get_first_node_in_group("player") as Node3D
 		if p != null:
-			rpc("_recv_pos", p.global_position, p.global_rotation.y)
+			rpc("_recv_pos", p.global_position, p.global_rotation.y, WeightSystem.kg)
 	# Хост держит у всех одно время дня (анти-дрейф).
 	if Net.is_server() and Clock.running:
 		_clock_accum += delta
@@ -155,7 +155,7 @@ func _sync_clock(df: float) -> void:
 	Clock.day_fraction = df
 
 @rpc("any_peer", "unreliable", "call_remote")
-func _recv_pos(pos: Vector3, yaw: float) -> void:
+func _recv_pos(pos: Vector3, yaw: float, kg: float) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if not _avatars.has(id):
 		var av := RemoteAvatar.new()
@@ -166,7 +166,9 @@ func _recv_pos(pos: Vector3, yaw: float) -> void:
 			var ident: Dictionary = _identities[id]
 			av.set_player_identity(ident["name"], ident["color"])
 		print("[Coop] аватар игрока %d создан" % id)
-	(_avatars[id] as RemoteAvatar).set_target(pos, yaw)
+	var a := _avatars[id] as RemoteAvatar
+	a.set_target(pos, yaw)
+	a.set_heavy(kg >= GameConstants.HEAVY_KG)   # ≥90 кг — толстая модель у других
 
 func _on_peer_left(id: int) -> void:
 	if _avatars.has(id):

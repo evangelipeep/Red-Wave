@@ -70,6 +70,21 @@ func _ready() -> void:
 	_build_light()
 	if build_access and build_demo_curve:
 		_build_boarding()
+	var sinfo: Dictionary = Slides.SLIDES.get(slide_id, {})
+	if sinfo.get("extreme", false):
+		_mark_extreme(sinfo.get("heavy_ban", false))
+
+# ВРЕМЕННО (для теста): красная метка экстрим-горок, чтобы отличать их визуально.
+func _mark_extreme(heavy_ban: bool) -> void:
+	var l := Label3D.new()
+	l.text = "⚠ ЭКСТРИМ\n(≥90 кг нельзя)" if heavy_ban else "⚠ ЭКСТРИМ"
+	l.modulate = Color(1.0, 0.18, 0.18)
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.font_size = 60
+	l.pixel_size = 0.02
+	l.outline_size = 12
+	l.position = _top_local + Vector3(0, 4.2, 0)
+	add_child(l)
 
 func _setup_path() -> void:
 	_path = get_node_or_null("Path") as Path3D
@@ -442,8 +457,10 @@ func _on_board_entered(body: Node3D) -> void:
 	if RunState.is_too_sick():
 		EventBus.toast.emit("🤢 Тебя укачало — сначала отдохни (спа/еда/театр).")
 		return
-	if info.get("extreme", false) and not WeightSystem.can_ride_extreme():
-		EventBus.toast.emit("Слишком большой вес (%.0f кг) — на горку не допускаем" % WeightSystem.kg)
+	# Толстым (≥90 кг) нельзя только на ОПРЕДЕЛЁННЫЕ экстрим-горки (heavy_ban),
+	# на остальных экстрим-горках кататься можно.
+	if info.get("heavy_ban", false) and WeightSystem.kg >= GameConstants.WEIGHT_LOCK:
+		EventBus.toast.emit("На эту экстрим-горку с весом ≥%.0f кг не пускают — сбрось вес." % GameConstants.WEIGHT_LOCK)
 		return
 	# Твоя очередь? (впереди никого) — едешь честно.
 	if _player_ahead <= 0:
