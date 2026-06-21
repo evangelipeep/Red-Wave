@@ -38,36 +38,16 @@ func _rebuild_cards() -> void:
 		c.queue_free()
 	_entries.clear()
 	for i in RunState.main_quest.size():
-		var sb := StyleBoxFlat.new()
-		sb.set_corner_radius_all(12)
-		sb.bg_color = Color(0.12, 0.13, 0.17, 0.95)
-		sb.border_width_left = 6
-		sb.content_margin_left = 14
-		sb.content_margin_right = 14
-		sb.content_margin_top = 10
-		sb.content_margin_bottom = 10
-		var card := PanelContainer.new()
-		card.add_theme_stylebox_override("panel", sb)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var v := VBoxContainer.new()
-		card.add_child(v)
-		var title := Label.new()
-		title.add_theme_font_size_override("font_size", 17)
-		var sub := Label.new()
-		sub.add_theme_font_size_override("font_size", 13)
-		sub.modulate = Color(0.75, 0.78, 0.85)
-		v.add_child(title)
-		v.add_child(sub)
-		_cards.add_child(card)
-		_entries.append({"title": title, "sub": sub, "accent": sb, "i": i})
+		_make_card(RunState.main_quest[i], Color(0.12, 0.13, 0.17, 0.95), i, false)
 	if not RunState.personal_quest.is_empty():
-		_add_personal_card()
+		_make_card(RunState.personal_quest[0], Color(0.14, 0.11, 0.18, 0.95), -1, true)
 	_update_cards()
 
-func _add_personal_card() -> void:
+# Карточка задания: заголовок + статус, и раскрывающаяся подсказка (клик → плавно растёт).
+func _make_card(atom: Dictionary, bg: Color, i: int, personal: bool) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(12)
-	sb.bg_color = Color(0.14, 0.11, 0.18, 0.95)
+	sb.bg_color = bg
 	sb.border_width_left = 6
 	sb.content_margin_left = 14
 	sb.content_margin_right = 14
@@ -76,17 +56,52 @@ func _add_personal_card() -> void:
 	var card := PanelContainer.new()
 	card.add_theme_stylebox_override("panel", sb)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
 	card.add_child(v)
 	var title := Label.new()
 	title.add_theme_font_size_override("font_size", 17)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sub := Label.new()
 	sub.add_theme_font_size_override("font_size", 13)
 	sub.modulate = Color(0.75, 0.78, 0.85)
+	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_child(title)
 	v.add_child(sub)
+	# Раскрывающаяся часть: плоский Control с обрезкой; высоту анимируем твином.
+	var wrap := Control.new()
+	wrap.clip_contents = true
+	wrap.custom_minimum_size = Vector2(0, 0)
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(wrap)
+	var detail := Label.new()
+	detail.add_theme_font_size_override("font_size", 13)
+	detail.modulate = Color(0.82, 0.9, 1.0)
+	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail.custom_minimum_size.x = 250
+	detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	detail.text = QuestGenerator.describe(atom)
+	wrap.add_child(detail)
+	detail.size = Vector2(250, detail.get_minimum_size().y)
+	detail.position = Vector2.ZERO
 	_cards.add_child(card)
-	_entries.append({"title": title, "sub": sub, "accent": sb, "i": -1, "personal": true})
+	var entry := {"title": title, "sub": sub, "accent": sb, "i": i, "personal": personal,
+		"wrap": wrap, "detail": detail, "expanded": false}
+	card.gui_input.connect(_on_card_input.bind(entry))
+	_entries.append(entry)
+
+func _on_card_input(event: InputEvent, entry: Dictionary) -> void:
+	if event is InputEventMouseButton and event.pressed \
+			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		entry["expanded"] = not entry["expanded"]
+		var wrap: Control = entry["wrap"]
+		var detail: Label = entry["detail"]
+		var target := (detail.get_minimum_size().y + 6.0) if entry["expanded"] else 0.0
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(wrap, "custom_minimum_size:y", target, 0.22)
 
 func _update_cards() -> void:
 	_tasks_head.text = "ЗАДАНИЯ   %d" % RunState.main_quest.size()

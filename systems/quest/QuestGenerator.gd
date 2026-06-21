@@ -163,3 +163,63 @@ func generate_personal() -> Array:
 	if pool.is_empty():
 		return []
 	return [pool[randi() % pool.size()]]
+
+# Подробное описание + подсказка по атому (для раскрытия карточки на карте).
+func describe(atom: Dictionary) -> String:
+	var axis := str(atom.get("axis", ""))
+	var n := int(atom.get("n", 1))
+	match axis:
+		"extreme":
+			return "Прокатись на ЭКСТРИМ-горках %d раз.\nПодходят: %s.\n⚠ klyk и vabank нельзя при весе ≥90 кг (на zhalo — можно)." % [n, ", ".join(Slides.extreme_ids())]
+		"gul":
+			return "Катайся на ГОРКЕ ДНЯ (Гул сегодня): %s — %d раз. Её же подсвечивает табло Гула." % [Hype.day_slide, n]
+		"sens":
+			var s := str(atom.get("sensation", ""))
+			return "Горки с ощущением «%s» (%d раз):\n%s." % [s, n, ", ".join(Slides.with_sensation(s))]
+		"temp":
+			var t := str(atom.get("temp", ""))
+			return "Горки с температурой «%s» (%d раз):\n%s." % [t, n, ", ".join(Slides.with_temp(t))]
+		"perzone":
+			return "Прокатись хотя бы по одной горке в КАЖДОЙ зоне: Клык, Дельта, Зеро."
+		"closezone":
+			var z := str(atom.get("zone", ""))
+			return "Прокатись на ВСЕХ горках зоны «%s»:\n%s." % [_zone_ru(z), ", ".join(Slides.in_zone(z))]
+		"diffsens":
+			return "Собери %d РАЗНЫХ ощущений — катайся на горках с разными типами спуска." % n
+		"calm":
+			return "Спокойные (релакс) горки — %d раз:\n%s." % [n, ", ".join(Slides.calm_ids())]
+		"shows":
+			return "Сходи на представление в ТЕАТР %d раз.\nСегодня представления в %s (приходи заранее — открыто за час)." % [n, _show_times()]
+		"bard":
+			return "Найди Барда в парке и сделай с ним фото (подойди к нему)."
+		"food":
+			return "Поешь в 3 РАЗНЫХ лавках фуд-корта: отстой очередь, закажи, дождись пищалку, забери и съешь в зоне фуд-корта."
+		"shop":
+			return "Купи сувенир в каждой из 3 лавок (по одному с лавки)."
+		"weightlow":
+			return "Финишируй ЛЁГКИМ (≤79 кг): сжигай вес бегом и прыжками, ходи в туалет, не переедай."
+		"weighthi":
+			return "Прокатись на ЭКСТРИМЕ с весом 88–90 кг. Наешься заранее, но не переходи 90 (иначе часть экстрима закроется)."
+		"dizzy":
+			return "Доведи тошноту до МАКСИМУМА и сбрось до 0 к 19:00.\nЛечат: спа (онсен/джакузи/сауна/баня), еда, душ, театр, таблетки."
+		"race":
+			return "Победи в ГОНКЕ на горке «Рой» %d раз (обгони соперника-призрака)." % n
+		"skip":
+			return "Пройди БЕЗ ОЧЕРЕДИ %d раз — используй Fast Pass (легально, без штрафа)." % n
+		"laps":
+			return "Намотай %d кругов по реке-капилляру (плыви по течению вокруг центра)." % n
+		_:
+			return "Выполни задание: %s." % str(atom.get("name", "?"))
+
+func _zone_ru(z: String) -> String:
+	match z:
+		"klyk": return "Северный Клык"
+		"delta": return "Дельта"
+		"zero": return "Серый Пояс Зеро"
+		_: return z
+
+func _show_times() -> String:
+	var t: Array = []
+	for s in GameConstants.SHOW_SLOTS:
+		t.append(Clock.frac_to_time_string(s))
+	return " и ".join(t)
