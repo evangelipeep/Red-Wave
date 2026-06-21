@@ -18,7 +18,35 @@ func _ready() -> void:
 	_build_shell()
 	_build_doors()
 	_build_entrance()
+	_build_facilities()
 	_build_labels()
+
+func _build_facilities() -> void:
+	# Душевые и туалет — на севере (у выхода в парк, как на рисунке).
+	for sx in [-16.0, 16.0]:
+		var sh := ShowerPOI.new()
+		sh.position = Vector3(sx, 0, 88.0)
+		add_child(sh)
+	for tx in [-30.0, 30.0]:
+		var wc := ToiletCabinPOI.new()
+		wc.position = Vector3(tx, 0, 88.0)
+		add_child(wc)
+	# Весы у входа в зону (как на рисунке).
+	for wx in [-32.0, 32.0]:
+		_box(Vector3(1.6, 0.4, 1.6), Vector3(wx, 0.2, 94.0), Look.METAL, false)
+		_label("ВЕСЫ", Vector3(wx, 1.4, 94.0), Color(0.8, 0.85, 0.9))
+	# Шкафчики (зелёные банки) по бокам от ресепшна.
+	for lx in [-22.0, 22.0]:
+		var lk := LockerPOI.new()
+		lk.position = Vector3(lx, 0, 104.0)
+		add_child(lk)
+	# Ресепшн по центру (доп.желания подключит этап L3 — пока стойка-декор).
+	_box(Vector3(6.0, 1.1, 2.5), Vector3(0, 0.55, 106.0), Look.ACCENT)
+	_label("РЕСЕПШН", Vector3(0, 2.4, 106.0), Color(1.0, 0.7, 0.4))
+	# Кабинки для раздевания (красные) у дальней стены.
+	for cx in [-28.0, 28.0]:
+		_box(Vector3(3.0, 2.4, 3.0), Vector3(cx, 1.2, 118.0), Look.WAVE, false)
+	_label("КАБИНКИ ДЛЯ ПЕРЕОДЕВАНИЯ", Vector3(0, 3.0, 118.0), Color(1.0, 0.55, 0.55))
 
 func _box(size: Vector3, pos: Vector3, col: Color, nav := true, transparent := false) -> CSGBox3D:
 	var b := CSGBox3D.new()

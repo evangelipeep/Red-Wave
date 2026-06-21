@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://drwparkgb0001"]
+[gd_scene load_steps=19 format=3 uid="uid://drwparkgb0001"]
 
 [ext_resource type="Script" path="res://world/RunBootstrap.gd" id="1"]
 [ext_resource type="Script" path="res://world/LobbyBuilder.gd" id="19"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://ui/ConfirmDialog.tscn" id="16"]
 [ext_resource type="Script" path="res://systems/poi/FoodCourtManager.gd" id="17"]
 [ext_resource type="PackedScene" path="res://ui/ItemShopOverlay.tscn" id="18"]
+[ext_resource type="PackedScene" path="res://ui/WelcomeOverlay.tscn" id="20"]
 [ext_resource type="Script" path="res://world/Lighting.gd" id="2"]
 [ext_resource type="Script" path="res://world/ParkBuilder.gd" id="3"]
 [ext_resource type="PackedScene" path="res://player/Player.tscn" id="4"]
@@ -116,3 +117,5 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 126)
 script = ExtResource("17")
 
 [node name="ItemShopOverlay" parent="." instance=ExtResource("18")]
+
+[node name="WelcomeOverlay" parent="." instance=ExtResource("20")]
