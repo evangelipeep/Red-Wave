@@ -64,6 +64,7 @@ func _ready() -> void:
 	add_to_group("player")
 	_ensure_inputs()
 	EventBus.run_started.connect(_on_run_started)
+	EventBus.prep_started.connect(_on_run_started)   # в раздевалке игрок уже ходит
 	EventBus.run_planning_started.connect(_on_run_planning)
 	Clock.day_finished.connect(_on_run_planning)   # конец дня — тоже заморозка
 	EventBus.map_opened.connect(_on_map_opened)

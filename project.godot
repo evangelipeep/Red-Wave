@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 GameConstants="*res://autoload/GameConstants.gd"
+Look="*res://autoload/Look.gd"
 EventBus="*res://autoload/EventBus.gd"
 Clock="*res://autoload/Clock.gd"
 Hype="*res://autoload/Hype.gd"

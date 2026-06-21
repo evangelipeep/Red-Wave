@@ -29,9 +29,7 @@ func _ready() -> void:
 	cm.radius = 0.35
 	cm.height = 1.7
 	mesh.mesh = cm
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.from_hsv(randf(), 0.45, 0.85)
-	mesh.material_override = mat
+	mesh.material_override = Look.mat(Color.from_hsv(randf(), 0.45, 0.85))
 	mesh.position = Vector3(0, 0.9, 0)
 	add_child(mesh)
 	_nav = NavigationAgent3D.new()

@@ -49,7 +49,6 @@ func _on_interact() -> void:
 	if m != null:
 		m.open()
 
-func _mat(c: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	return m
+# Тун-материал через фабрику Look (см. autoload/Look.gd).
+func _mat(c: Color) -> ShaderMaterial:
+	return Look.mat(c)

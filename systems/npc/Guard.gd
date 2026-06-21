@@ -21,9 +21,7 @@ func _ready() -> void:
 	cm.radius = 0.4
 	cm.height = 1.9
 	mesh.mesh = cm
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.15, 0.18, 0.3)   # тёмная «форма»
-	mesh.material_override = mat
+	mesh.material_override = Look.mat(Color(0.15, 0.18, 0.3))   # тёмная «форма»
 	mesh.position = Vector3(0, 0.95, 0)
 	add_child(mesh)
 

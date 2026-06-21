@@ -19,4 +19,12 @@
   (иначе NPC не учтут; навмеш печётся на `run_started`).
 - Текстуры храни рядом с `.glb` или встрой в файл при экспорте.
 
-Тун-стиль (Wind Waker) накладывается материалом — см. гайд в чате (toon-шейдер + контур).
+## Тун-стиль на модель
+
+Стиль накладывается материалом из фабрики `Look` (см. [../../ART_STYLE.md](../../ART_STYLE.md)):
+- просто цветом: `mesh.material_override = Look.mat(Look.WOOD)`;
+- с текстурой модели: в импорте `.glb` сделай материал «extractable», поставь на
+  surface `ShaderMaterial` (`res://assets/shaders/toon.gdshader`) и в параметр
+  `tex` подставь текстуру.
+
+Подробно про шейдеры: [../shaders/README.md](../shaders/README.md).

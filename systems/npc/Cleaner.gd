@@ -33,9 +33,7 @@ func _ready() -> void:
 	cm.radius = 0.34
 	cm.height = 1.7
 	mesh.mesh = cm
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.4, 0.55, 0.7)   # уборщик — серо-синий
-	mesh.material_override = mat
+	mesh.material_override = Look.mat(Color(0.4, 0.55, 0.7))   # уборщик — серо-синий
 	mesh.position = Vector3(0, 0.85, 0)
 	add_child(mesh)
 	var label := Label3D.new()

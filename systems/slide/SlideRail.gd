@@ -186,13 +186,9 @@ func _zone_marker(local_pos: Vector3, col: Color, text: String) -> void:
 	label.position = local_pos + Vector3(0, 1.7, 0)
 	add_child(label)
 
-func _make_material(col: Color, transparent: bool) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = col
-	if transparent:
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return m
+# Тун-материал через фабрику Look (см. autoload/Look.gd).
+func _make_material(col: Color, transparent: bool) -> ShaderMaterial:
+	return Look.mat(col, not transparent, transparent)
 
 func _build_visuals() -> void:
 	var tube := CSGPolygon3D.new()

@@ -35,6 +35,9 @@ const MAX_TRAYS := 4
 # --- Предметы ---
 var pills: int = 0                    # таблетки от тошноты
 var has_gun: bool = false             # куплен пистолет-отталкиватель
+
+# --- Раздевалка ---
+var locker_number: int = 0            # личный шкафчик игрока (выдаётся случайно)
 var _legit_rides_since_block: int = 0
 var _zones_visited: Dictionary = {}  # для бонуса «первопроходец зоны»
 var _dizzy_decay_accum: float = 0.0
@@ -73,6 +76,7 @@ func reset() -> void:
 	selected_slot = -1
 	pills = 0
 	has_gun = false
+	locker_number = 0
 	_legit_rides_since_block = 0
 	_zones_visited.clear()
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)
@@ -81,6 +85,10 @@ func reset() -> void:
 func add_score(delta: int) -> void:
 	score += delta
 	EventBus.score_changed.emit(Net.local_id(), score)
+
+# Случайный личный шкафчик (показываем на приветственном экране и у шкафчиков).
+func assign_locker() -> void:
+	locker_number = randi_range(1, 200)
 
 func add_lap() -> void:
 	river_laps += 1

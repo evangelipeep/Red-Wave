@@ -8,6 +8,7 @@ extends Node
 @warning_ignore_start("unused_signal")
 signal run_started()
 signal run_planning_started()
+signal prep_started()                                       # игрок в раздевалке (до старта дня): свободно ходит, часы стоят
 signal phase_changed(phase: String)
 signal scheduled_event(event: String)                       # "show_1", "parade", "maintenance", "ballad"
 signal slide_completed(player_id: int, slide_id: String)    # «достиг бассейна» (баг #21)

@@ -259,10 +259,6 @@ func place_order(order_dishes: Array) -> void:
 	var secs: float = maxf(cook_frac * GameConstants.run_length, 0.1)
 	get_tree().create_timer(secs).timeout.connect(func(): _cook_load = maxi(_cook_load - 1, 0))
 
-func _mat(c: Color, transparent: bool = false) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	if transparent:
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return m
+# Тун-материал через фабрику Look (см. autoload/Look.gd).
+func _mat(c: Color, transparent: bool = false) -> ShaderMaterial:
+	return Look.mat(c, not transparent, transparent)

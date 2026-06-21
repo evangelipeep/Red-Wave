@@ -28,13 +28,9 @@ func _ready() -> void:
 	_slide("krylo", Vector3(9, 0, 3), FLOOR2_Y, false)
 	_slide("klyk", Vector3(0, 0, 8), FLOOR3_Y, true)
 
-func _mat(c: Color, transparent := false) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	if transparent:
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return m
+# Тун-материал через фабрику Look (см. autoload/Look.gd).
+func _mat(c: Color, transparent := false) -> ShaderMaterial:
+	return Look.mat(c, not transparent, transparent)
 
 func _floor(name_text: String, pos: Vector3, size: Vector3, col: Color) -> void:
 	var f := CSGBox3D.new()
@@ -63,7 +59,7 @@ func _glass_rail(center: Vector3, sx: float, sz: float) -> void:
 	_rail_seg(Vector3(center.x + sx * 0.5, y, center.z), Vector3(0.2, h, sz), glass)
 	_rail_seg(Vector3(center.x - sx * 0.5, y, center.z), Vector3(0.2, h, sz), glass)
 
-func _rail_seg(pos: Vector3, size: Vector3, mat: StandardMaterial3D) -> void:
+func _rail_seg(pos: Vector3, size: Vector3, mat: Material) -> void:
 	var s := CSGBox3D.new()
 	s.size = size
 	s.position = pos

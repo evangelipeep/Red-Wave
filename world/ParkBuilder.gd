@@ -76,13 +76,10 @@ func _build_shop(shop_id: String, pos: Vector3) -> void:
 	s.position = pos
 	add_child(s)
 
-func _mat(c: Color, transparent := false) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	if transparent:
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return m
+# Тун-материал через фабрику Look: непрозрачный — с контуром, прозрачный — без.
+# (Раньше отдавал StandardMaterial3D; стиль теперь задаёт autoload/Look.gd.)
+func _mat(c: Color, transparent := false) -> ShaderMaterial:
+	return Look.mat(c, not transparent, transparent)
 
 func _build_ground() -> void:
 	var ground := CSGCombiner3D.new()
@@ -101,7 +98,10 @@ func _build_walls_and_dome() -> void:
 	var solid := _mat(Color(0.35, 0.33, 0.4))
 	var glass := _mat(Color(0.6, 0.8, 1.0, 0.25), true)
 	# Стены по периметру (3 этажа). Северная (−Z, сторона Зеро) — панорамное стекло.
-	_wall(Vector3(0, WALL_H * 0.5, HALF_Z), Vector3(HALF_X * 2, WALL_H, 2), solid)    # юг
+	# Южная стена — с проёмом по центру (x −9..9) в раздевалку (розовые двери LobbyBuilder).
+	_wall(Vector3(-54.5, WALL_H * 0.5, HALF_Z), Vector3(91, WALL_H, 2), solid)        # юг (лево)
+	_wall(Vector3(54.5, WALL_H * 0.5, HALF_Z), Vector3(91, WALL_H, 2), solid)         # юг (право)
+	_wall(Vector3(0, 10.25, HALF_Z), Vector3(18, 11.5, 2), solid)                     # перемычка над проёмом
 	_wall(Vector3(HALF_X, WALL_H * 0.5, 0), Vector3(2, WALL_H, HALF_Z * 2), solid)    # восток
 	_wall(Vector3(-HALF_X, WALL_H * 0.5, 0), Vector3(2, WALL_H, HALF_Z * 2), solid)   # запад
 	_wall(Vector3(0, WALL_H * 0.5, -HALF_Z), Vector3(HALF_X * 2, WALL_H, 1.5), glass) # север (панорама/закат)
@@ -118,7 +118,7 @@ func _build_walls_and_dome() -> void:
 	dome.material_override = _mat(Color(0.55, 0.75, 1.0, 0.12), true)
 	add_child(dome)
 
-func _wall(pos: Vector3, size: Vector3, mat: StandardMaterial3D) -> void:
+func _wall(pos: Vector3, size: Vector3, mat: Material) -> void:
 	var w := CSGBox3D.new()
 	w.size = size
 	w.position = pos
@@ -144,9 +144,13 @@ func _setup_nav() -> void:
 	add_child(_nav)
 
 func _bake_nav() -> void:
-	# Запекаем после старта дня — к этому моменту все горки/препятствия построены.
+	# Запекаем после старта дня. ВАЖНО: коллизия CSG считается ОТЛОЖЕННО (не в _ready),
+	# поэтому ждём пару кадров — иначе бейк не увидит геометрию и даст 0 полигонов
+	# (баг проявлялся, когда день стартует в тот же кадр, что и постройка мира).
 	if _nav == null:
 		return
+	await get_tree().process_frame
+	await get_tree().process_frame
 	_nav.bake_navigation_mesh(false)   # синхронно
 	var polys := _nav.navigation_mesh.get_polygon_count()
 	print("[Nav] навмеш запечён: полигонов = %d" % polys)

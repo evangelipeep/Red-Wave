@@ -4,6 +4,7 @@ extends Node3D
 
 @export var debug_run_length: float = 120.0   # короткий день для теста (реальные сек); боевое — 1800
 @export var use_planning: bool = true          # фаза планирования (ParkGreybox); тест горки — false
+@export var use_lobby: bool = true             # старт в раздевалке; день стартует при входе в парк
 @export var hard_mode: bool = false            # сложный режим: штрафы за невыполненные квесты
 
 const BALLAD_RADIUS := 13.0   # «красный круг» в центре — куда надо прийти к финалу
@@ -11,6 +12,7 @@ const BALLAD_RADIUS := 13.0   # «красный круг» в центре — 
 var _ballad_started: bool = false
 var _ballad_attended: bool = false
 var _guard_spawned: bool = false
+var _day_started: bool = false
 
 func _ready() -> void:
 	GameConstants.run_length = debug_run_length
@@ -29,26 +31,48 @@ func _ready() -> void:
 		else:
 			begin_remote()
 	elif "--single" in args:
-		begin_local()
+		begin_local(true)   # headless/быстрый запуск: без раздевалки, день сразу
 	# else: лобби покажет экран и сам вызовет begin_local/begin_remote по кнопке.
 
-## Хост или одиночная: бросает Гул, генерит квест дня, запускает планирование/день.
-func begin_local() -> void:
+## Хост или одиночная: бросает Гул, генерит квест дня. Затем раздевалка (день стартует
+## при входе в парк через розовые двери) или сразу день (skip_prep — тесты/тест-сцена).
+func begin_local(skip_prep := false) -> void:
 	Hype.roll()
 	RunState.main_quest = QuestGenerator.generate_main()
 	RunState.personal_quest = QuestGenerator.generate_personal()
+	RunState.assign_locker()
 	print("[Run] горка дня = %s, день = %.0f сек, атомов в квесте = %d" % [
 		Hype.day_slide, debug_run_length, RunState.main_quest.size()])
-	if use_planning:
-		EventBus.run_planning_started.emit()   # старт дня запускает PlanningOverlay
+	if use_lobby and not skip_prep:
+		EventBus.prep_started.emit()           # раздевалка: ходишь, часы стоят
+	elif use_planning and not skip_prep:
+		EventBus.run_planning_started.emit()   # старая фаза планирования (PlanningOverlay)
 	else:
-		Clock.start_run()
-		EventBus.run_started.emit()
+		_start_day()
 
 ## Клиент в сети: свой Гул не катит, ждёт день от хоста (CoopManager._sync_session).
+## В раздевалку попадает сразу (prep), день применит синхрон от хоста.
 func begin_remote() -> void:
 	RunState.personal_quest = QuestGenerator.generate_personal()
-	print("[Run] клиент: ожидание дня от хоста…")
+	RunState.assign_locker()
+	if use_lobby:
+		EventBus.prep_started.emit()
+	print("[Run] клиент: раздевалка, ожидание дня от хоста…")
+
+## Вход в парк через розовые двери (LobbyBuilder зовёт). Запускает день у хоста/одиночки.
+func enter_park() -> void:
+	if _day_started:
+		return
+	if Net.is_online() and not Net.is_server():
+		return   # клиент ждёт день от хоста (синхрон), сам не стартует
+	_start_day()
+
+func _start_day() -> void:
+	if _day_started:
+		return
+	_day_started = true
+	Clock.start_run()
+	EventBus.run_started.emit()
 
 func _on_guard_alert(_level: int) -> void:
 	if _guard_spawned:

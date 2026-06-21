@@ -1,6 +1,7 @@
-[gd_scene load_steps=17 format=3 uid="uid://drwparkgb0001"]
+[gd_scene load_steps=18 format=3 uid="uid://drwparkgb0001"]
 
 [ext_resource type="Script" path="res://world/RunBootstrap.gd" id="1"]
+[ext_resource type="Script" path="res://world/LobbyBuilder.gd" id="19"]
 [ext_resource type="PackedScene" path="res://ui/LobbyOverlay.tscn" id="14"]
 [ext_resource type="PackedScene" path="res://ui/StallMenuOverlay.tscn" id="15"]
 [ext_resource type="PackedScene" path="res://ui/ConfirmDialog.tscn" id="16"]
@@ -27,8 +28,29 @@ sky_material = SubResource("sky_mat")
 [sub_resource type="Environment" id="env"]
 background_mode = 2
 sky = SubResource("sky")
-ambient_light_source = 3
+; Тун любит РОВНЫЙ заполняющий свет: ambient как цвет (source=2), а не из неба.
+; Энергию ambient крутит world/Lighting.gd по времени суток — здесь базовое значение.
+ambient_light_source = 2
+ambient_light_color = Color(0.7, 0.8, 0.95, 1)
+ambient_light_energy = 0.5
 tonemap_mode = 2
+; Glow (bloom) слабый — даёт лёгкое «акварельное» свечение ярких мест.
+glow_enabled = true
+glow_intensity = 0.2
+glow_bloom = 0.05
+glow_hdr_threshold = 0.9
+; Лёгкая подкрутка цвета — насыщеннее и чуть контрастнее (мультяшно).
+adjustment_enabled = true
+adjustment_saturation = 1.15
+adjustment_contrast = 1.05
+; Голубоватый слабый туман — фирменная глубина Wind Waker.
+fog_enabled = true
+fog_light_color = Color(0.7, 0.82, 0.95, 1)
+fog_density = 0.0015
+; Для плоских заливок отключаем «грязнящие» эффекты (по умолчанию и так off).
+ssao_enabled = false
+ssil_enabled = false
+sdfgi_enabled = false
 
 [node name="ParkGreybox" type="Node3D"]
 script = ExtResource("1")
@@ -39,11 +61,15 @@ environment = SubResource("env")
 [node name="Sun" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0.5, 0.8660254, 0, -0.8660254, 0.5, 0, 10, 0)
 shadow_enabled = true
+shadow_blur = 1.5
 script = ExtResource("2")
 world_env = NodePath("../WorldEnvironment")
 
 [node name="ParkBuilder" type="Node3D" parent="."]
 script = ExtResource("3")
+
+[node name="LobbyBuilder" type="Node3D" parent="."]
+script = ExtResource("19")
 
 [node name="HypeBoard" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 38)
@@ -70,7 +96,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -46)
 slide_id = "ruletka"
 
 [node name="Player" parent="." instance=ExtResource("4")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 62)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 126)
 
 [node name="HUD" parent="." instance=ExtResource("6")]
 

@@ -144,10 +144,6 @@ func _add_steam(height: float) -> void:
 	steam.position = Vector3(0, height, 0)
 	add_child(steam)
 
-func _mat(c: Color, transparent: bool = false) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.albedo_color = c
-	if transparent:
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	return m
+# Тун-материал через фабрику Look (см. autoload/Look.gd).
+func _mat(c: Color, transparent: bool = false) -> ShaderMaterial:
+	return Look.mat(c, not transparent, transparent)
