@@ -25,6 +25,7 @@ var _stuck_t: float = 0.0
 var _grav: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
 var _col: CollisionShape3D
 var _nav: NavigationAgent3D
+var _rig: CharacterRig
 var _knock: Vector3 = Vector3.ZERO
 
 func apply_knock(v: Vector3) -> void:
@@ -39,14 +40,11 @@ func _ready() -> void:
 	_col.shape = cap
 	_col.position = Vector3(0, 0.9, 0)
 	add_child(_col)
-	var mesh := MeshInstance3D.new()
-	var cm := CapsuleMesh.new()
-	cm.radius = 0.35
-	cm.height = 1.7
-	mesh.mesh = cm
-	mesh.material_override = Look.mat(_behavior_color())
-	mesh.position = Vector3(0, 0.9, 0)
-	add_child(mesh)
+	# Тело-силуэт (тот же CharacterRig, что у игрока); цвет одежды = тип поведения.
+	_rig = CharacterRig.make(randf_range(1.6, 1.85),
+		Color.from_hsv(0.07, 0.35, randf_range(0.6, 0.85)), _behavior_color(),
+		false, randf_range(0.85, 1.2))
+	add_child(_rig)
 	_nav = NavigationAgent3D.new()
 	_nav.path_desired_distance = 0.6
 	_nav.target_desired_distance = 0.6
@@ -70,6 +68,7 @@ func _behavior_color() -> Color:
 		_: return Color(0.6, 0.9, 0.5)                 # расслабленный — зелёный
 
 func _physics_process(delta: float) -> void:
+	_drive_rig(delta)
 	if _knock.length() > 0.3 and state != St.RIDING and state != St.EXIT:
 		velocity = _knock
 		velocity.y = (velocity.y - _grav * delta) if not is_on_floor() else 0.0
@@ -111,6 +110,16 @@ func _physics_process(delta: float) -> void:
 			_loiter_t -= delta
 			if _loiter_t <= 0.0:
 				_decide_next()
+
+# Ведём анимацию тела и поворачиваем силуэт по направлению движения.
+func _drive_rig(delta: float) -> void:
+	if not _rig:
+		return
+	var pv := Vector3(velocity.x, 0.0, velocity.z)
+	if pv.length() > 0.3:
+		var yaw := atan2(-pv.x, -pv.z)
+		_rig.rotation.y = lerp_angle(_rig.rotation.y, yaw, clampf(delta * 10.0, 0.0, 1.0))
+	_rig.animate_ground(pv.length(), speed, is_on_floor(), delta)
 
 func _step(target: Vector3, delta: float) -> void:
 	# Идём по навмешу (обход препятствий); без навмеша агент вернёт прямую к цели.

@@ -244,6 +244,14 @@ func select_slot(i: int) -> void:
 	if i >= 0 and i < trays.size():
 		selected_slot = i
 
+# Переключить активный слот колесом мыши (dir = -1/+1) по занятым подносам, по кругу.
+func cycle_slot(dir: int) -> void:
+	if trays.is_empty():
+		return
+	var n := trays.size()
+	var start := selected_slot if selected_slot >= 0 else 0
+	selected_slot = (start + dir + n) % n
+
 # Положить поднос в инвентарь (подбор выброшенной еды). false — нет места.
 func add_tray(tray: Dictionary) -> bool:
 	if not can_take_tray():

@@ -20,13 +20,11 @@ func _ready() -> void:
 
 func _build_schedule() -> void:
 	_schedule.clear()
-	_schedule.append([GameConstants.SHOW_SLOTS[0], "show_1"])
+	_schedule.append([GameConstants.SHOW_SLOTS[0], "show_1"])     # представление в середине дня
 	_schedule.append([GameConstants.PARADE, "parade"])
-	_schedule.append([GameConstants.SHOW_SLOTS[1], "show_2"])
 	_schedule.append([GameConstants.MAINT, "maintenance"])
-	_schedule.append([GameConstants.SHOW_SLOTS[2], "show_3"])
 	_schedule.append([GameConstants.DESK_CLOSE, "desk_close"])
-	_schedule.append([GameConstants.BALLAD, "ballad"])
+	_schedule.append([GameConstants.SHOW_SLOTS[1], "show_final"]) # финальное представление (итоги в театре)
 
 func start_run() -> void:
 	day_fraction = 0.0
@@ -75,7 +73,11 @@ func _check_schedule() -> void:
 
 # Текущее игровое время как строка "ЧЧ:ММ" (09:00–21:00)
 func game_time_string() -> String:
-	var minutes_total := int(day_fraction * 12.0 * 60.0)  # 12 часов дня
+	return frac_to_time_string(day_fraction)
+
+# Доля дня → игровое время "ЧЧ:ММ" (день 09:00–21:00). Для часов HUD и расписания шоу.
+func frac_to_time_string(frac: float) -> String:
+	var minutes_total := int(clampf(frac, 0.0, 1.0) * 12.0 * 60.0)  # 12 часов дня
 	@warning_ignore("integer_division")
 	var h := 9 + minutes_total / 60
 	var m := minutes_total % 60

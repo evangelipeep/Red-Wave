@@ -41,7 +41,8 @@ var _rail: Node = null
 
 @onready var _head: Node3D = $Head
 @onready var _cam := $Head/Camera3D as CameraComfort
-var _held_food: MeshInstance3D    # «в руках»: активный поднос (viewmodel у камеры)
+var _rig: CharacterRig            # тело-силуэт: видно руки/ноги (1-е лицо), позы ходьбы/спуска
+var _held_food: MeshInstance3D    # «в руках»: активный поднос (крепится к рукам рига)
 var _held_mat: StandardMaterial3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
 var _was_on_floor: bool = true
@@ -73,28 +74,44 @@ func _ready() -> void:
 		var ws: Area3D = $WaterSensor
 		ws.area_entered.connect(_on_water_entered)
 		ws.area_exited.connect(_on_water_exited)
-	_build_hands()
+	_build_visual()
 
-# Руки: viewmodel активного подноса перед камерой (показываем еду, что держим).
-func _build_hands() -> void:
+# Тело-силуэт (CharacterRig) + поднос «в руках». Вид от 1-го лица: голову прячем
+# от своей камеры, тело/руки/ноги остаются — их видно, когда смотришь вниз и на спуске.
+func _build_visual() -> void:
+	_rig = CharacterRig.make(1.78, Color(0.85, 0.68, 0.55), Color(0.45, 0.30, 0.55), true)
+	_rig.position = Vector3(0, -0.9, 0)        # ступни — у нижней точки капсулы
+	add_child(_rig)
+	_rig.hide_head_for_camera(_cam)
+	# Поднос в руках крепим к якорю рук рига (а не к камере) — видно настоящие руки.
 	_held_food = MeshInstance3D.new()
 	var bm := BoxMesh.new()
-	bm.size = Vector3(0.22, 0.16, 0.22)
+	bm.size = Vector3(0.24, 0.06, 0.30)        # плоский поднос
 	_held_food.mesh = bm
 	_held_mat = StandardMaterial3D.new()
 	_held_food.material_override = _held_mat
-	_held_food.position = Vector3(0.32, -0.26, -0.6)   # справа-снизу-впереди
 	_held_food.visible = false
-	_cam.add_child(_held_food)
+	_rig.tray_anchor().add_child(_held_food)
+	_held_food.position = Vector3(0, 0.02, 0)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	# Поднос в руках: показываем активный слот, кроме плавания/спуска (там руки заняты).
 	var i := RunState.selected_slot
-	if i >= 0 and i < RunState.trays.size():
-		var tray: Dictionary = RunState.trays[i]
-		_held_mat.albedo_color = tray["color"]
-		_held_food.visible = true
-	else:
-		_held_food.visible = false
+	var has_tray := i >= 0 and i < RunState.trays.size()
+	var carrying := has_tray and not riding and not swimming
+	if has_tray:
+		_held_mat.albedo_color = (RunState.trays[i] as Dictionary)["color"]
+	_held_food.visible = carrying
+	# Анимация тела по текущему состоянию (видно в 1-м лице сверху-вниз).
+	if _rig:
+		_rig.set_carry(carrying)
+		var spd := Vector2(velocity.x, velocity.z).length()
+		if riding:
+			_rig.animate_ride(delta)
+		elif swimming:
+			_rig.animate_swim(spd, delta)
+		else:
+			_rig.animate_ground(spd, sprint_speed, is_on_floor(), delta)
 	# Тошнота качает камеру (от WARN до полной) — намёк «пора отдохнуть».
 	var span := float(GameConstants.DIZZY_MAX - GameConstants.NAUSEA_WARN)
 	_cam.nausea = clampf((RunState.dizziness - GameConstants.NAUSEA_WARN) / maxf(span, 1.0), 0.0, 1.0)
@@ -134,6 +151,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			rotate_y(dx)
 		_head.rotation.x = clamp(_head.rotation.x + dy,
 			deg_to_rad(pitch_min_deg), deg_to_rad(pitch_max_deg))
+	# Колесо мыши — переключение слота быстрого доступа (как 1-4).
+	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+			RunState.cycle_slot(-1)
+			return
+		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			RunState.cycle_slot(1)
+			return
 	if event.is_action_pressed("ui_cancel"):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE \
 			if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED \

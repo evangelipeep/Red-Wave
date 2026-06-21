@@ -24,10 +24,13 @@ var _slots: Array = []        # [{panel, swatch, label}] ×4
 var _buzz: Array = []         # [{chip, dot, label}] ×5
 var _buffs_label: Label
 var _items_label: Label
+var _clock_label: Label   # электронные часы под полоской тошноты
+var _slot_sel: StyleBoxFlat       # рамка активного слота быстрого доступа
+var _slot_idle: StyleBoxFlat      # фон неактивного слота
 
 func _ready() -> void:
 	_toast.text = ""
-	_hint.text = "WASD · Shift бег · Space прыжок · E взаимод · F есть · 1-4 слот · G выброс · T туалет · M карта · СКМ пинг"
+	_hint.text = "WASD · Shift бег · Space прыжок · E взаимод · F есть · 1-4/колесо слот · G выброс · T туалет · M карта · СКМ пинг"
 	EventBus.toast.connect(_on_toast)
 	EventBus.queue_update.connect(_on_queue)
 	_build_food_ui()
@@ -68,6 +71,8 @@ func _process(delta: float) -> void:
 	else:
 		_queue.text = ""
 
+	if _clock_label != null:
+		_clock_label.text = "⌚ %s" % Clock.game_time_string()
 	_update_food_ui()
 
 	if _toast_time > 0.0:
@@ -126,6 +131,18 @@ func _phase_ru(p: String) -> String:
 
 # --- Фуд-корт: бар инвентаря (4 слота), пищалки (до 5), строка бафов. ---
 func _build_food_ui() -> void:
+	# Стили слотов быстрого доступа: активный — жёлтая рамка, прочие — тёмный фон.
+	_slot_idle = StyleBoxFlat.new()
+	_slot_idle.bg_color = Color(0.10, 0.10, 0.13, 0.65)
+	_slot_idle.set_corner_radius_all(6)
+	_slot_idle.set_border_width_all(2)
+	_slot_idle.border_color = Color(0.30, 0.30, 0.36, 0.7)
+	_slot_sel = StyleBoxFlat.new()
+	_slot_sel.bg_color = Color(0.18, 0.16, 0.06, 0.85)
+	_slot_sel.set_corner_radius_all(6)
+	_slot_sel.set_border_width_all(3)
+	_slot_sel.border_color = Color(1.0, 0.85, 0.3)
+
 	var inv := HBoxContainer.new()
 	add_child(inv)
 	inv.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -181,19 +198,29 @@ func _build_food_ui() -> void:
 	_items_label.modulate = Color(0.7, 0.9, 1.0)
 	$VBox.add_child(_items_label)
 
+	# Электронные часы прямо под полоской тошноты (_dizzy).
+	_clock_label = Label.new()
+	_clock_label.add_theme_font_size_override("font_size", 26)
+	_clock_label.modulate = Color(0.4, 1.0, 0.5)   # зелёные «цифры»
+	$VBox.add_child(_clock_label)
+	$VBox.move_child(_clock_label, _dizzy.get_index() + 1)
+
 func _update_food_ui() -> void:
 	for i in 4:
 		var s: Dictionary = _slots[i]
+		var panel := s["panel"] as PanelContainer
+		var selected := i == RunState.selected_slot
+		panel.add_theme_stylebox_override("panel", _slot_sel if selected else _slot_idle)
 		if i < RunState.trays.size():
 			var tray: Dictionary = RunState.trays[i]
 			(s["swatch"] as ColorRect).color = tray["color"]
 			(s["label"] as Label).text = "%d· %s ×%d" % [
 				i + 1, FoodMenu.stall_name(tray["stall_id"]), (tray["dishes"] as Array).size()]
-			(s["panel"] as Control).modulate = Color(1, 1, 1) if i == RunState.selected_slot else Color(0.65, 0.65, 0.65)
+			panel.modulate = Color(1, 1, 1) if selected else Color(0.8, 0.8, 0.8)
 		else:
 			(s["swatch"] as ColorRect).color = Color(0.2, 0.2, 0.2, 0.5)
 			(s["label"] as Label).text = "%d· —" % (i + 1)
-			(s["panel"] as Control).modulate = Color(0.5, 0.5, 0.5)
+			panel.modulate = Color(0.55, 0.55, 0.55)
 
 	for i in 5:
 		var b: Dictionary = _buzz[i]

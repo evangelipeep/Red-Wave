@@ -11,7 +11,7 @@ var run_scale: float:
 const PLANNING_WINDOW: float = 20.0      # реальные сек, часы на паузе
 
 # Расписание (доли дня)
-const SHOW_SLOTS: Array[float] = [0.16, 0.42, 0.67]
+const SHOW_SLOTS: Array[float] = [0.45, 0.90]   # 2 представления: середина дня и финал
 const PARADE: float = 0.33
 const MAINT: float = 0.50
 const DESK_CLOSE: float = 0.75

@@ -2,7 +2,7 @@ extends Node3D
 ## Запуск забега в тестовой сцене: бросает Гул, сбрасывает вес/монеты,
 ## запускает часы дня. Позже это возьмёт на себя лобби/сервер (фаза 3).
 
-@export var debug_run_length: float = 120.0   # короткий день для теста (реальные сек); боевое — 1800
+@export var debug_run_length: float = 1200.0   # полноценный день разработки — 20 минут
 @export var use_planning: bool = true          # фаза планирования (ParkGreybox); тест горки — false
 @export var use_lobby: bool = true             # старт в раздевалке; день стартует при входе в парк
 @export var hard_mode: bool = false            # сложный режим: штрафы за невыполненные квесты

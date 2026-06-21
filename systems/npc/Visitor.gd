@@ -10,6 +10,7 @@ var _retarget_t: float = 0.0
 var _stuck_t: float = 0.0
 var _grav: float = ProjectSettings.get_setting("physics/3d/default_gravity", 18.0)
 var _nav: NavigationAgent3D
+var _rig: CharacterRig
 var _knock: Vector3 = Vector3.ZERO
 
 func apply_knock(v: Vector3) -> void:
@@ -24,14 +25,12 @@ func _ready() -> void:
 	col.shape = cap
 	col.position = Vector3(0, 0.9, 0)
 	add_child(col)
-	var mesh := MeshInstance3D.new()
-	var cm := CapsuleMesh.new()
-	cm.radius = 0.35
-	cm.height = 1.7
-	mesh.mesh = cm
-	mesh.material_override = Look.mat(Color.from_hsv(randf(), 0.45, 0.85))
-	mesh.position = Vector3(0, 0.9, 0)
-	add_child(mesh)
+	# Тело-силуэт (тот же CharacterRig, что у игрока) — потом заменишь на модель.
+	_rig = CharacterRig.make(randf_range(1.6, 1.85),
+		Color.from_hsv(0.07, 0.35, randf_range(0.6, 0.85)),   # кожа
+		Color.from_hsv(randf(), 0.5, 0.8),                    # одежда
+		false, randf_range(0.85, 1.2))
+	add_child(_rig)
 	_nav = NavigationAgent3D.new()
 	_nav.path_desired_distance = 0.6
 	_nav.target_desired_distance = 0.6
@@ -68,6 +67,7 @@ func _physics_process(delta: float) -> void:
 		velocity.z = move_toward(velocity.z, 0.0, speed)
 	velocity.y = (velocity.y - _grav * delta) if not is_on_floor() else 0.0
 	move_and_slide()
+	_drive_rig(delta)
 
 	_retarget_t -= delta
 	var rv := get_real_velocity()
@@ -80,3 +80,13 @@ func _physics_process(delta: float) -> void:
 	elif _stuck_t > 4.0:
 		global_position = Vector3(_target.x, global_position.y, _target.z)  # аварийно
 		_pick()
+
+# Ведём анимацию тела и поворачиваем силуэт по направлению движения.
+func _drive_rig(delta: float) -> void:
+	if not _rig:
+		return
+	var pv := Vector3(velocity.x, 0.0, velocity.z)
+	if pv.length() > 0.3:
+		var yaw := atan2(-pv.x, -pv.z)
+		_rig.rotation.y = lerp_angle(_rig.rotation.y, yaw, clampf(delta * 10.0, 0.0, 1.0))
+	_rig.animate_ground(pv.length(), speed, is_on_floor(), delta)

@@ -19,6 +19,23 @@
   (иначе NPC не учтут; навмеш печётся на `run_started`).
 - Текстуры храни рядом с `.glb` или встрой в файл при экспорте.
 
+## Персонажи (игрок и NPC)
+
+Тело персонажа — это компонент [`player/CharacterRig.gd`](../../player/CharacterRig.gd):
+переиспользуемая «заготовка-силуэт» из примитивов с готовыми позами (ожидание,
+ходьба, бег, прыжок, спуск с горки, плавание) и видом от первого лица.
+
+- Создаётся одной строкой: `CharacterRig.make(рост, цвет_кожи, цвет_одежды, от_первого_лица)`.
+- Игрок: [`player/PlayerController.gd`](../../player/PlayerController.gd) → `_build_visual()`.
+- NPC: [`systems/npc/Visitor.gd`](../../systems/npc/Visitor.gd),
+  [`systems/npc/NPCAgent.gd`](../../systems/npc/NPCAgent.gd) → `_drive_rig()`.
+
+**Чтобы вставить модель из Blender:** импортируй `.glb` (скелет + меши + анимации),
+удали узел `Placeholder` внутри рига и вставь свою модель; перенаправь
+`head_anchor()`/`hand_anchor_r()`/`tray_anchor()` на свои кости (BoneAttachment3D).
+Пропорции силуэта правятся в инспекторе (`total_height`, `build`, `head_scale`) —
+по ним и лепи модель. Один риг → одинаково для игрока и всех NPC.
+
 ## Тун-стиль на модель
 
 Стиль накладывается материалом из фабрики `Look` (см. [../../ART_STYLE.md](../../ART_STYLE.md)):
