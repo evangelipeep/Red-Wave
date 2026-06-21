@@ -38,6 +38,11 @@ func _format() -> String:
 	if not RunState.personal_quest.is_empty():
 		var pm := "✓" if QuestTracker.personal_is_done() else "✗"
 		s += "\n★ Личное: %s %s\n" % [pm, str(RunState.personal_quest[0].get("name", "?"))]
+	if not RunState.side_quests.is_empty():
+		s += "\nДоп.желания (ресепшн):\n"
+		for atom in RunState.side_quests:
+			var sm := "✓" if bool(atom.get("_paid", false)) else "✗"
+			s += "   %s %s\n" % [sm, str(atom.get("name", "?"))]
 	s += "\nОЧКИ ЗА ДЕНЬ: %d\n" % RunState.score
 	s += _coop_board()
 	s += "\nEnter — заново"

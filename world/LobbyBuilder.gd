@@ -40,9 +40,10 @@ func _build_facilities() -> void:
 		var lk := LockerPOI.new()
 		lk.position = Vector3(lx, 0, 104.0)
 		add_child(lk)
-	# Ресепшн по центру (доп.желания подключит этап L3 — пока стойка-декор).
-	_box(Vector3(6.0, 1.1, 2.5), Vector3(0, 0.55, 106.0), Look.ACCENT)
-	_label("РЕСЕПШН", Vector3(0, 2.4, 106.0), Color(1.0, 0.7, 0.4))
+	# Ресепшн по центру — доп.желания (сайд-квесты со штрафом за провал).
+	var rec := ReceptionPOI.new()
+	rec.position = Vector3(0, 0, 106.0)
+	add_child(rec)
 	# Кабинки для раздевания (красные) у дальней стены.
 	for cx in [-28.0, 28.0]:
 		_box(Vector3(3.0, 2.4, 3.0), Vector3(cx, 1.2, 118.0), Look.WAVE, false)

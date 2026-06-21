@@ -22,6 +22,7 @@ var _weighthi_done: bool = false
 var _shows_attended: int = 0
 var _show_window: float = 0.0
 var _show_counted: bool = false
+var _side_penalized: bool = false   # штраф за доп.желания начисляется один раз в финале
 
 func _ready() -> void:
 	EventBus.run_started.connect(_on_run_started)
@@ -75,6 +76,7 @@ func _on_run_started() -> void:
 	_paid = false
 	personal_done = false
 	_personal_paid = false
+	_side_penalized = false
 	done.clear()
 	done.resize(RunState.main_quest.size())
 	for i in done.size():
@@ -102,8 +104,17 @@ func _on_dizzy(_pid: int, level: int) -> void:
 
 func _on_day_finished() -> void:
 	_reevaluate(true)   # финальные атомы (вес на финише)
+	# Штраф за невыполненные доп.желания с ресепшна (берёшь — отвечаешь).
+	if not _side_penalized:
+		_side_penalized = true
+		for atom in RunState.side_quests:
+			if not bool(atom.get("_paid", false)):
+				RunState.add_score(GameConstants.SIDE_FAIL)
+				EventBus.toast.emit("Доп.желание «%s» провалено: %d" % [
+					str(atom.get("name", "?")), GameConstants.SIDE_FAIL])
 
 func _reevaluate(can_pay: bool) -> void:
+	_reevaluate_side()   # доп.желания считаем всегда (не зависят от главного квеста)
 	if RunState.main_quest.is_empty():
 		return
 	if done.size() != RunState.main_quest.size():
@@ -132,6 +143,17 @@ func _reevaluate(can_pay: bool) -> void:
 			_personal_paid = true
 			RunState.add_score(GameConstants.PERSONAL_PTS)
 			EventBus.toast.emit("Личное задание выполнено! +%d очков" % GameConstants.PERSONAL_PTS)
+
+# Доп.желания с ресепшна: выполнил — +SIDE_OK (один раз), провалил к финалу — −SIDE_FAIL.
+func _reevaluate_side() -> void:
+	for atom in RunState.side_quests:
+		if bool(atom.get("_paid", false)):
+			continue
+		if _evaluate(atom):
+			atom["_paid"] = true
+			RunState.add_score(GameConstants.SIDE_OK)
+			EventBus.toast.emit("Доп.желание «%s» выполнено! +%d" % [
+				str(atom.get("name", "?")), GameConstants.SIDE_OK])
 
 # Прогресс атома главного квеста (текущее, нужно) — для карточек «2/5».
 func progress(i: int) -> Vector2i:
