@@ -7,10 +7,6 @@ extends Node3D
 @export var use_lobby: bool = true             # старт в раздевалке; день стартует при входе в парк
 @export var hard_mode: bool = false            # сложный режим: штрафы за невыполненные квесты
 
-const BALLAD_RADIUS := 13.0   # «красный круг» в центре — куда надо прийти к финалу
-
-var _ballad_started: bool = false
-var _ballad_attended: bool = false
 var _guard_spawned: bool = false
 var _day_started: bool = false
 
@@ -87,19 +83,8 @@ func _on_guard_alert(_level: int) -> void:
 	EventBus.toast.emit("За вами теперь следит охрана…")
 
 func _on_scheduled(ev: String) -> void:
-	if ev == "ballad":
-		_ballad_started = true
-		EventBus.toast.emit("Баллада начинается — идите в центр (красный круг)!")
-
-func _process(_delta: float) -> void:
-	if not _ballad_started or _ballad_attended:
-		return
-	var players := get_tree().get_nodes_in_group("player")
-	if players.is_empty():
-		return
-	var p := players[0] as Node3D
-	if Vector2(p.global_position.x, p.global_position.z).length() < BALLAD_RADIUS:
-		_ballad_attended = true
+	if ev == "show_final":
+		EventBus.toast.emit("Финальное представление в театре — идите на подведение итогов!")
 
 func _on_day_end() -> void:
 	# Сложный режим: штрафы за невыполненные квесты (GDD, заморожено).
@@ -110,9 +95,9 @@ func _on_day_end() -> void:
 		if not RunState.personal_quest.is_empty() and not QuestTracker.personal_is_done():
 			RunState.add_score(GameConstants.HARD_PERSONAL_FAIL)
 			EventBus.toast.emit("Сложный режим: личное провалено (%d)" % GameConstants.HARD_PERSONAL_FAIL)
-	# Штраф за Балладу только в настоящем парке (где есть зоны), не в тест-сцене.
+	# Финал — в театре. Не пришёл на подведение итогов → штраф (только в настоящем парке).
 	if get_tree().get_nodes_in_group("zone").is_empty():
 		return
-	if _ballad_started and not _ballad_attended:
+	if not RunState.finale_attended:
 		RunState.add_score(GameConstants.MISS_BALLAD)
-		EventBus.toast.emit("Пропустил Балладу! %d очка" % GameConstants.MISS_BALLAD)
+		EventBus.toast.emit("Пропустил финал в театре! %d очка" % GameConstants.MISS_BALLAD)

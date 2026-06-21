@@ -39,6 +39,9 @@ var has_gun: bool = false             # куплен пистолет-оттал
 # --- Раздевалка ---
 var locker_number: int = 0            # личный шкафчик игрока (выдаётся случайно)
 var side_quests: Array = []           # доп.желания с ресепшна (атомы; за провал штраф)
+
+# --- Финал ---
+var finale_attended: bool = false     # был в театре на финальном представлении (итоги)
 var _legit_rides_since_block: int = 0
 var _zones_visited: Dictionary = {}  # для бонуса «первопроходец зоны»
 var _dizzy_decay_accum: float = 0.0
@@ -79,6 +82,7 @@ func reset() -> void:
 	has_gun = false
 	locker_number = 0
 	side_quests.clear()
+	finale_attended = false
 	_legit_rides_since_block = 0
 	_zones_visited.clear()
 	EventBus.dizziness_changed.emit(Net.local_id(), dizziness)

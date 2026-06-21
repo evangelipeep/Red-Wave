@@ -17,6 +17,7 @@ var _awarded_slot: int = -1
 var _entered_for_show: bool = false
 var _toast_acc: float = 0.0
 var _nausea_acc: float = 0.0   # лечение тошноты, пока сидишь в театре
+var _results_board: Label3D    # экран итогов на сцене (финальное представление)
 
 func _ready() -> void:
 	add_to_group("poi_theater")
@@ -53,6 +54,17 @@ func _ready() -> void:
 	label.outline_size = 10
 	label.position = Vector3(0, 3.4, 0)
 	add_child(label)
+
+	# Экран на сцене — на финальном представлении показывает итоги дня.
+	_results_board = Label3D.new()
+	_results_board.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_results_board.font_size = 40
+	_results_board.pixel_size = 0.01
+	_results_board.outline_size = 8
+	_results_board.modulate = Color(1.0, 0.92, 0.5)
+	_results_board.position = Vector3(0, 2.2, 2.8)
+	_results_board.visible = false
+	add_child(_results_board)
 
 	body_entered.connect(_on_enter)
 	body_exited.connect(func(b): if b is PlayerController: player_inside = false)
@@ -117,6 +129,23 @@ func _process(delta: float) -> void:
 			EventBus.toast.emit("Спасибо за посещение! +%d очков, тошнота спала." % GameConstants.SHOW_PTS)
 		_entered_for_show = false
 	_shown_phase = _phase
+
+	# Финальное представление (последний слот) = подведение итогов на сцене.
+	var is_final := _slot_i == GameConstants.SHOW_SLOTS.size() - 1 and _phase == "running"
+	_results_board.visible = is_final
+	if is_final:
+		_results_board.text = _results_text()
+		if player_inside:
+			RunState.finale_attended = true
+
+func _results_text() -> String:
+	var total := RunState.main_quest.size()
+	var done := 0
+	for i in total:
+		if QuestTracker.is_done(i):
+			done += 1
+	return "🏆 ПОДВЕДЕНИЕ ИТОГОВ\nОчки: %d\nГорок проехано: %d\nКалорий сожжено: %.0f\nГлавный квест: %d/%d\nВес на финише: %.0f кг" % [
+		RunState.score, RunState.rides_total, WeightSystem.calories_burned, done, total, WeightSystem.kg]
 
 func _recalc_phase() -> void:
 	var df := Clock.day_fraction
