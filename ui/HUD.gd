@@ -24,8 +24,6 @@ var _slots: Array = []        # [{panel, icon, label}] — пул хотбара
 var _buzz: Array = []         # [{chip, dot, label}] ×5
 var _buffs_label: Label
 var _clock_label: Label   # электронные часы под полоской тошноты
-var _slot_sel: StyleBoxFlat       # рамка активного слота быстрого доступа
-var _slot_idle: StyleBoxFlat      # фон неактивного слота
 
 const HOTBAR_SLOTS := 6           # пул слотов: до 4 подносов + таблетки + пистолет
 var _last_selected: int = -1      # для анимации «отдачи» при смене активного слота
@@ -133,18 +131,8 @@ func _phase_ru(p: String) -> String:
 
 # --- Фуд-корт: хотбар (до 6 слотов с иконками), пищалки (до 5), строка бафов. ---
 func _build_food_ui() -> void:
-	# Стили слотов быстрого доступа: активный — жёлтая рамка, прочие — тёмный фон.
-	_slot_idle = StyleBoxFlat.new()
-	_slot_idle.bg_color = Color(0.10, 0.10, 0.13, 0.65)
-	_slot_idle.set_corner_radius_all(6)
-	_slot_idle.set_border_width_all(2)
-	_slot_idle.border_color = Color(0.30, 0.30, 0.36, 0.7)
-	_slot_sel = StyleBoxFlat.new()
-	_slot_sel.bg_color = Color(0.18, 0.16, 0.06, 0.85)
-	_slot_sel.set_corner_radius_all(6)
-	_slot_sel.set_border_width_all(3)
-	_slot_sel.border_color = Color(1.0, 0.85, 0.3)
-
+	# Рамки слотов берём из Look.slot_style (общая «ячейка» — картинка из assets/ui,
+	# иначе плоский фолбэк). Те же слоты переиспользуются для сундуков в будущем.
 	var inv := HBoxContainer.new()
 	add_child(inv)
 	inv.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -155,7 +143,7 @@ func _build_food_ui() -> void:
 	for i in HOTBAR_SLOTS:
 		var p := PanelContainer.new()
 		p.custom_minimum_size = Vector2(88, 74)
-		p.add_theme_stylebox_override("panel", _slot_idle)
+		p.add_theme_stylebox_override("panel", Look.slot_style(false))
 		p.visible = false
 		inv.add_child(p)
 		var v := VBoxContainer.new()
@@ -226,7 +214,7 @@ func _update_food_ui() -> void:
 			continue
 		panel.visible = true
 		var selected := i == sel
-		panel.add_theme_stylebox_override("panel", _slot_sel if selected else _slot_idle)
+		panel.add_theme_stylebox_override("panel", Look.slot_style(selected))
 		panel.modulate = Color(1, 1, 1) if selected else Color(0.82, 0.82, 0.82)
 		var key := "%d" % (i + 1) if i < 4 else "·"   # цифры только для первых четырёх
 		var entry: Dictionary = hb[i]

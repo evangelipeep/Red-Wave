@@ -83,6 +83,7 @@ var _foot_r: Node3D
 var _tray: Node3D                 # якорь предмета «в руках»
 
 var _head_meshes: Array[MeshInstance3D] = []    # голова/глаза — SHADOWS_ONLY в 1-м лице
+var _fp_hide: Array[MeshInstance3D] = []        # шея/торс — тоже прячем от своей камеры (упираются в лицо)
 var _belly_meshes: Array[MeshInstance3D] = []   # таз+торс — раздуваем от веса (живот)
 var _hip_h: float = 0.85
 var _phase: float = 0.0          # фаза шага (ходьба/бег/плавание)
@@ -208,11 +209,13 @@ func _build_placeholder() -> void:
 	_hips = _joint(root, Vector3(0, _hip_h, 0))
 	_belly_meshes.append(_box(_hips, Vector3(0.20 * h * build, 0.13 * h, 0.15 * h * build), Vector3(0, -0.02 * h, 0), cloth))
 	_spine = _joint(_hips, Vector3.ZERO)
-	_belly_meshes.append(_box(_spine, Vector3(0.26 * h * build, spine_len, 0.17 * h * build), Vector3(0, spine_len * 0.5, 0), cloth))
+	var torso := _box(_spine, Vector3(0.26 * h * build, spine_len, 0.17 * h * build), Vector3(0, spine_len * 0.5, 0), cloth)
+	_belly_meshes.append(torso)
+	_fp_hide.append(torso)   # торс упирается в камеру 1-го лица — прячем
 	_chest = _joint(_spine, Vector3(0, spine_len, 0))
 
-	# Шея + голова (в 1-м лице голова — SHADOWS_ONLY).
-	_capsule(_chest, neck_len, 0.045 * h, Vector3(0, neck_len * 0.5, 0), skin)
+	# Шея + голова (в 1-м лице голова и шея — SHADOWS_ONLY, иначе чёрный outline в лицо).
+	_fp_hide.append(_capsule(_chest, neck_len, 0.045 * h, Vector3(0, neck_len * 0.5, 0), skin))
 	_head = _joint(_chest, Vector3(0, neck_len, 0))
 	_head_meshes.append(_sphere(_head, head_r, Vector3(0, head_r, 0), skin))
 	_head_meshes.append(_eye(_head, Vector3(0.38 * head_r, head_r * 1.05, -head_r * 0.82)))
@@ -480,7 +483,10 @@ func _sphere(parent: Node3D, radius: float, pos: Vector3, color: Color) -> MeshI
 func _eye(parent: Node3D, pos: Vector3) -> MeshInstance3D:
 	return _sphere(parent, total_height * 0.018 * head_scale, pos, Color(0.08, 0.06, 0.1))
 
-# Голова и глаза — только тень: не видно своей башки, но тень падает с головой.
+# 1-е лицо: голова/глаза/шея/торс — только тень (не видно своей башки и не упираемся
+# чёрным контуром в камеру), но тень падает целиком. Руки/ноги/таз остаются видимыми.
 func _head_shadow_only() -> void:
 	for m in _head_meshes:
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	for m in _fp_hide:
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY

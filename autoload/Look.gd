@@ -77,3 +77,43 @@ func _outline_pass() -> ShaderMaterial:
 	o.set_shader_parameter("width", OUTLINE_WIDTH)
 	o.set_shader_parameter("color", OUTLINE_COLOR)
 	return o
+
+# ---------------------------------------------------------------------------
+#  ПЕРЕИСПОЛЬЗУЕМАЯ «ЯЧЕЙКА» инвентаря (хотбар, сундуки, любые слоты).
+#  Картинка-рамка: res://assets/ui/slot.png (обычная) и slot_selected.png
+#  (выбранная). Положишь их — слоты станут с твоей рамкой; нет файла —
+#  плоский фолбэк. Кэшируем (один StyleBox на всех).
+# ---------------------------------------------------------------------------
+const SLOT_TEX := "res://assets/ui/slot.png"
+const SLOT_TEX_SEL := "res://assets/ui/slot_selected.png"
+
+var _slot_idle_cache: StyleBox
+var _slot_sel_cache: StyleBox
+
+func slot_style(selected: bool) -> StyleBox:
+	if selected:
+		if _slot_sel_cache == null:
+			_slot_sel_cache = _make_slot(true)
+		return _slot_sel_cache
+	if _slot_idle_cache == null:
+		_slot_idle_cache = _make_slot(false)
+	return _slot_idle_cache
+
+func _make_slot(selected: bool) -> StyleBox:
+	var path := SLOT_TEX_SEL if selected else SLOT_TEX
+	if ResourceLoader.exists(path):
+		var sb := StyleBoxTexture.new()
+		sb.texture = load(path)
+		# 9-патч поля: углы рамки не тянутся (подбери под свою картинку).
+		sb.texture_margin_left = 18
+		sb.texture_margin_right = 18
+		sb.texture_margin_top = 18
+		sb.texture_margin_bottom = 18
+		return sb
+	# Фолбэк без картинки: тёмный фон, выбранный — жёлтая рамка.
+	var f := StyleBoxFlat.new()
+	f.bg_color = Color(0.18, 0.16, 0.06, 0.85) if selected else Color(0.10, 0.10, 0.13, 0.65)
+	f.set_corner_radius_all(6)
+	f.set_border_width_all(3 if selected else 2)
+	f.border_color = Color(1.0, 0.85, 0.3) if selected else Color(0.30, 0.30, 0.36, 0.7)
+	return f
