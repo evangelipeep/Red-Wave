@@ -15,9 +15,7 @@ var _sel: Array = []           # выбранные блюда (dish-слова�
 var _order_list: VBoxContainer
 var _total_label: Label
 var _order_btn: Button
-var _cashier_face: Label
-var _register: Label
-var _cashier_say: Label
+var _cashier: CashierWidget
 
 func _ready() -> void:
 	add_to_group("stall_menu")
@@ -123,8 +121,9 @@ func _build_frame() -> void:
 	cancel_btn.pressed.connect(_close)
 	actions.add_child(cancel_btn)
 
-	# ---- Колонка 3: КАССА (кассир-вампир) ----
-	cols.add_child(_build_cashier())
+	# ---- Колонка 3: КАССА (кассир-вампир, общий виджет) ----
+	_cashier = CashierWidget.new()
+	cols.add_child(_cashier)
 
 func _head(text: String, color: Color) -> Label:
 	var l := Label.new()
@@ -198,85 +197,25 @@ func _dish_card(d: Dictionary, sid: String, col: Color) -> PanelContainer:
 	h.add_child(add_btn)
 	return card
 
-func _build_cashier() -> Control:
-	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(210, 460)
-	box.add_child(_head("КАССА", Color(0.85, 0.7, 1.0)))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.10, 0.08, 0.14, 0.95)
-	sb.set_corner_radius_all(10)
-	sb.set_content_margin_all(12)
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", sb)
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(panel)
-	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 8)
-	panel.add_child(v)
-	_cashier_face = Label.new()
-	_cashier_face.add_theme_font_size_override("font_size", 96)
-	_cashier_face.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_cashier_face.text = "🧛"
-	v.add_child(_cashier_face)
-	var namel := Label.new()
-	namel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	namel.modulate = Color(0.8, 0.8, 0.9)
-	namel.text = "Кассир Дракулеску"
-	v.add_child(namel)
-	_register = Label.new()
-	_register.add_theme_font_size_override("font_size", 40)
-	_register.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_register.text = "🧾"
-	v.add_child(_register)
-	_cashier_say = Label.new()
-	_cashier_say.add_theme_font_size_override("font_size", 14)
-	_cashier_say.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_cashier_say.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_cashier_say.custom_minimum_size.x = 180
-	_cashier_say.modulate = Color(0.7, 0.95, 0.8)
-	_cashier_say.text = "Что желаете, голубчик?"
-	v.add_child(_cashier_say)
-	return box
-
-# Кассир «вбивает» заказ: пунч кассы + кивок головы + реплика.
-func _cashier_react(added: bool) -> void:
-	if _register == null:
-		return
-	_register.pivot_offset = _register.size * 0.5
-	_register.scale = Vector2(1.35, 1.35)
-	_register.modulate = Color(1.0, 0.9, 0.4)
-	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(_register, "scale", Vector2.ONE, 0.28)
-	tw.parallel().tween_property(_register, "modulate", Color.WHITE, 0.28)
-	_cashier_face.pivot_offset = _cashier_face.size * 0.5
-	_cashier_face.scale = Vector2(1.0, 0.88)   # кивок
-	var tw2 := create_tween()
-	tw2.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw2.tween_property(_cashier_face, "scale", Vector2.ONE, 0.2)
-	var add_lines := ["*тык-тык* вношу…", "Записал, кровопийца.", "Ещё что-нибудь?", "*клац-клац*"]
-	var rem_lines := ["Убираю позицию…", "Передумали? Бывает.", "*бэкспейс*", "Минус один."]
-	_cashier_say.text = (add_lines if added else rem_lines).pick_random()
 
 # --- Заказ ---
 func _on_add(d: Dictionary) -> void:
 	_sel.append(d)
 	_update_order()
-	_cashier_react(true)
+	_cashier.react(true)
 
 func _on_remove(idx: int) -> void:
 	if idx >= 0 and idx < _sel.size():
 		_sel.remove_at(idx)
 		_update_order()
-		_cashier_react(false)
+		_cashier.react(false)
 
 func _on_clear() -> void:
 	if _sel.is_empty():
 		return
 	_sel.clear()
 	_update_order()
-	_cashier_react(false)
+	_cashier.react(false)
 
 func _update_order() -> void:
 	for c in _order_list.get_children():
@@ -322,6 +261,5 @@ func _on_order() -> void:
 		return
 	RunState.coins -= t
 	_stall.place_order(_sel)
-	if _cashier_say != null:
-		_cashier_say.text = "Ждите пищалку. Приятного… аппетита."
+	_cashier.say("Ждите пищалку. Приятного… аппетита.")
 	_close()

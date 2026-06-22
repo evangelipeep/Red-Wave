@@ -115,6 +115,8 @@ func _player() -> Node3D:
 func _on_throw() -> void:
 	if RunState.selected_slot < 0:
 		return
+	if RunState.selected_slot >= RunState.trays.size():
+		return   # активен слот предмета (таблетка/пистолет), а не поднос
 	var p := _player()
 	if p == null:
 		return

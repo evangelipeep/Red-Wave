@@ -42,8 +42,12 @@ var _rail: Node = null
 @onready var _head: Node3D = $Head
 @onready var _cam := $Head/Camera3D as CameraComfort
 var _rig: CharacterRig            # тело-силуэт: видно руки/ноги (1-е лицо), позы ходьбы/спуска
-var _held_food: MeshInstance3D    # «в руках»: активный поднос (крепится к рукам рига)
+var _held: MeshInstance3D    # «в руках»: активный поднос (крепится к рукам рига)
 var _held_mat: StandardMaterial3D
+var _held_kind: String = ""       # текущий вид предмета в руке (поднос/таблетка/пистолет)
+var _mesh_tray: BoxMesh
+var _mesh_pill: CapsuleMesh
+var _mesh_gun: BoxMesh
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity", 9.8)
 var _was_on_floor: bool = true
 var _water_count: int = 0   # сколько водных зон сейчас перекрываем
@@ -76,35 +80,43 @@ func _ready() -> void:
 		ws.area_exited.connect(_on_water_exited)
 	_build_visual()
 
-# Тело-силуэт (CharacterRig) + поднос «в руках». Вид от 1-го лица: голову прячем
-# от своей камеры, тело/руки/ноги остаются — их видно, когда смотришь вниз и на спуске.
+# Тело-силуэт (CharacterRig) + предмет «в руках». Вид от 1-го лица: голова рига —
+# SHADOWS_ONLY (своя тень с головой), тело/руки/ноги видно, когда смотришь вниз/на спуске.
 func _build_visual() -> void:
 	_rig = CharacterRig.make(1.78, Color(0.85, 0.68, 0.55), Color(0.45, 0.30, 0.55), true)
 	_rig.position = Vector3(0, -0.9, 0)        # ступни — у нижней точки капсулы
 	add_child(_rig)
-	_rig.hide_head_for_camera(_cam)
-	# Поднос в руках крепим к якорю рук рига (а не к камере) — видно настоящие руки.
-	_held_food = MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3(0.24, 0.06, 0.30)        # плоский поднос
-	_held_food.mesh = bm
+	# Кэш мешей предмета в руке (поднос/таблетка/пистолет) — меняем только при смене вида.
+	_mesh_tray = BoxMesh.new(); _mesh_tray.size = Vector3(0.24, 0.06, 0.30)
+	_mesh_pill = CapsuleMesh.new(); _mesh_pill.radius = 0.04; _mesh_pill.height = 0.13
+	_mesh_gun = BoxMesh.new(); _mesh_gun.size = Vector3(0.07, 0.12, 0.22)
+	# Предмет крепим к якорю рук рига — видно настоящие руки с предметом. Меш ставится
+	# при первом показе через _set_held_kind().
+	_held = MeshInstance3D.new()
 	_held_mat = StandardMaterial3D.new()
-	_held_food.material_override = _held_mat
-	_held_food.visible = false
-	_rig.tray_anchor().add_child(_held_food)
-	_held_food.position = Vector3(0, 0.02, 0)
+	_held.material_override = _held_mat
+	_held.visible = false
+	_rig.tray_anchor().add_child(_held)
+	_held.position = Vector3(0, 0.02, 0)
 
 func _process(delta: float) -> void:
-	# Поднос в руках: показываем активный слот, кроме плавания/спуска (там руки заняты).
-	var i := RunState.selected_slot
-	var has_tray := i >= 0 and i < RunState.trays.size()
-	var carrying := has_tray and not riding and not swimming
-	if has_tray:
-		_held_mat.albedo_color = (RunState.trays[i] as Dictionary)["color"]
-	_held_food.visible = carrying
+	# Активный слот хотбара → предмет в руке, кроме плавания/спуска (там руки заняты).
+	var slot := RunState.active_slot()
+	var kind := str(slot.get("kind", ""))
+	var carrying := kind != "" and not riding and not swimming
+	_held.visible = carrying
+	if carrying:
+		if kind != _held_kind:
+			_set_held_kind(kind)
+		if kind == "tray":
+			_held_mat.albedo_color = (slot["tray"] as Dictionary)["color"]
+		_held_kind = kind
+	else:
+		_held_kind = ""
 	# Анимация тела по текущему состоянию (видно в 1-м лице сверху-вниз).
 	if _rig:
 		_rig.set_carry(carrying)
+		_rig.set_weight01(WeightSystem.heavy01())   # >90 кг — раздувается живот
 		var spd := Vector2(velocity.x, velocity.z).length()
 		if riding:
 			_rig.animate_ride(delta)
@@ -112,6 +124,18 @@ func _process(delta: float) -> void:
 			_rig.animate_swim(spd, delta)
 		else:
 			_rig.animate_ground(spd, sprint_speed, is_on_floor(), delta)
+
+# Сменить меш предмета в руке под вид активного слота.
+func _set_held_kind(kind: String) -> void:
+	match kind:
+		"tray":
+			_held.mesh = _mesh_tray
+		"pill":
+			_held.mesh = _mesh_pill
+			_held_mat.albedo_color = Color(0.95, 0.95, 0.98)
+		"gun":
+			_held.mesh = _mesh_gun
+			_held_mat.albedo_color = Color(0.15, 0.15, 0.2)
 	# Тошнота качает камеру (от WARN до полной) — намёк «пора отдохнуть».
 	var span := float(GameConstants.DIZZY_MAX - GameConstants.NAUSEA_WARN)
 	_cam.nausea = clampf((RunState.dizziness - GameConstants.NAUSEA_WARN) / maxf(span, 1.0), 0.0, 1.0)
@@ -174,7 +198,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("inv_4"):
 		RunState.select_slot(3)
 	elif event.is_action_pressed("eat_food"):
-		RunState.eat_from_slot(RunState.selected_slot)
+		_use_active()
 	elif event.is_action_pressed("interact"):
 		_interact()
 	elif event.is_action_pressed("throw_food"):
@@ -234,9 +258,20 @@ func _interact() -> void:
 
 # Выброс выбранного подноса (G): у мусорки — с подтверждением (этап 3), иначе уронить на пол.
 func _throw_food() -> void:
-	if RunState.selected_slot < 0:
+	# Выбросить можно только поднос (таблетку/пистолет — нет).
+	if str(RunState.active_slot().get("kind", "")) != "tray":
 		return
 	EventBus.throw_food_pressed.emit()
+
+# F — применить активный слот: поднос → есть, таблетка → выпить, пистолет → толкнуть.
+func _use_active() -> void:
+	match str(RunState.active_slot().get("kind", "")):
+		"tray":
+			RunState.eat_from_slot(RunState.selected_slot)
+		"pill":
+			RunState.use_pill()
+		"gun":
+			_fire_gun()
 
 func _physics_process(delta: float) -> void:
 	if _ping_cd > 0.0:

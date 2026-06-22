@@ -244,15 +244,42 @@ func collect_order(stall_id: String) -> bool:
 		return true
 	return false
 
+# =========================================================================
+#  Хотбар (быстрый доступ): единый список снаряжения, по которому ходит
+#  selected_slot — сначала подносы (≤4), затем таблетки (если есть), затем
+#  пистолет (если куплен). Цифры 1-4 и колесо мыши переключают по нему.
+#  Важно: индекс подноса в trays совпадает с индексом слота в хотбаре, пока
+#  это слот подноса (подносы идут первыми) — на это опираются eat/drop/trash.
+# =========================================================================
+func hotbar() -> Array:
+	var h: Array = []
+	for t in trays:
+		h.append({"kind": "tray", "tray": t})
+	if pills > 0:
+		h.append({"kind": "pill", "qty": pills})
+	if has_gun:
+		h.append({"kind": "gun"})
+	return h
+
+func hotbar_size() -> int:
+	return trays.size() + (1 if pills > 0 else 0) + (1 if has_gun else 0)
+
+# Что в активном слоте: {} | {kind:"tray",tray:..} | {kind:"pill",qty:..} | {kind:"gun"}
+func active_slot() -> Dictionary:
+	var h := hotbar()
+	if selected_slot >= 0 and selected_slot < h.size():
+		return h[selected_slot]
+	return {}
+
 func select_slot(i: int) -> void:
-	if i >= 0 and i < trays.size():
+	if i >= 0 and i < hotbar_size():
 		selected_slot = i
 
-# Переключить активный слот колесом мыши (dir = -1/+1) по занятым подносам, по кругу.
+# Переключить активный слот колесом мыши (dir = -1/+1) по всему снаряжению, по кругу.
 func cycle_slot(dir: int) -> void:
-	if trays.is_empty():
+	var n := hotbar_size()
+	if n == 0:
 		return
-	var n := trays.size()
 	var start := selected_slot if selected_slot >= 0 else 0
 	selected_slot = (start + dir + n) % n
 
@@ -306,10 +333,11 @@ func trash_tray(i: int) -> void:
 	_fix_selected()
 
 func _fix_selected() -> void:
-	if trays.is_empty():
+	var n := hotbar_size()
+	if n == 0:
 		selected_slot = -1
 	else:
-		selected_slot = clampi(selected_slot, 0, trays.size() - 1)
+		selected_slot = clampi(selected_slot, 0, n - 1)
 
 # --- Предметы: таблетки и пистолет (магазин ItemShopPOI). ---
 func buy_pill() -> bool:
@@ -318,6 +346,8 @@ func buy_pill() -> bool:
 		return false
 	coins -= GameConstants.PILL_COST
 	pills += 1
+	if selected_slot < 0:
+		selected_slot = hotbar_size() - 1   # авто-выбор первого появившегося предмета
 	EventBus.toast.emit("Куплена таблетка от тошноты (всего %d)." % pills)
 	return true
 
@@ -330,6 +360,8 @@ func buy_gun() -> bool:
 		return false
 	coins -= GameConstants.GUN_COST
 	has_gun = true
+	if selected_slot < 0:
+		selected_slot = hotbar_size() - 1
 	EventBus.toast.emit("Куплен пистолет-отталкиватель! ПКМ — толкать.")
 	return true
 
@@ -338,6 +370,7 @@ func use_pill() -> bool:
 		EventBus.toast.emit("Нет таблеток от тошноты.")
 		return false
 	pills -= 1
+	_fix_selected()                          # таблетки кончились → слот исчезает, выбор сдвигаем
 	dizziness = 0
 	dizziness_peak = maxi(dizziness_peak, 0)
 	EventBus.dizziness_changed.emit(Net.local_id(), 0)

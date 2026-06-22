@@ -20,17 +20,19 @@ var _toast_time: float = 0.0
 var _queue_text: String = ""
 
 # Фуд-корт UI (строится в коде): слоты инвентаря, пищалки, строка бафов.
-var _slots: Array = []        # [{panel, swatch, label}] ×4
+var _slots: Array = []        # [{panel, icon, label}] — пул хотбара
 var _buzz: Array = []         # [{chip, dot, label}] ×5
 var _buffs_label: Label
-var _items_label: Label
 var _clock_label: Label   # электронные часы под полоской тошноты
 var _slot_sel: StyleBoxFlat       # рамка активного слота быстрого доступа
 var _slot_idle: StyleBoxFlat      # фон неактивного слота
 
+const HOTBAR_SLOTS := 6           # пул слотов: до 4 подносов + таблетки + пистолет
+var _last_selected: int = -1      # для анимации «отдачи» при смене активного слота
+
 func _ready() -> void:
 	_toast.text = ""
-	_hint.text = "WASD · Shift бег · Space прыжок · E взаимод · F есть · 1-4/колесо слот · G выброс · T туалет · M карта · СКМ пинг"
+	_hint.text = "WASD · Shift бег · Space прыжок · E взаимод · F применить · 1-4/колесо слот · G выброс · T туалет · M карта · СКМ пинг"
 	EventBus.toast.connect(_on_toast)
 	EventBus.queue_update.connect(_on_queue)
 	_build_food_ui()
@@ -129,7 +131,7 @@ func _phase_ru(p: String) -> String:
 		"finale": return "финал"
 		_: return "планирование"
 
-# --- Фуд-корт: бар инвентаря (4 слота), пищалки (до 5), строка бафов. ---
+# --- Фуд-корт: хотбар (до 6 слотов с иконками), пищалки (до 5), строка бафов. ---
 func _build_food_ui() -> void:
 	# Стили слотов быстрого доступа: активный — жёлтая рамка, прочие — тёмный фон.
 	_slot_idle = StyleBoxFlat.new()
@@ -150,28 +152,32 @@ func _build_food_ui() -> void:
 	inv.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	inv.offset_bottom = -14
 	inv.add_theme_constant_override("separation", 8)
-	for i in 4:
+	for i in HOTBAR_SLOTS:
 		var p := PanelContainer.new()
-		p.custom_minimum_size = Vector2(104, 60)
+		p.custom_minimum_size = Vector2(88, 74)
+		p.add_theme_stylebox_override("panel", _slot_idle)
+		p.visible = false
 		inv.add_child(p)
 		var v := VBoxContainer.new()
-		v.add_theme_constant_override("separation", 2)
+		v.add_theme_constant_override("separation", 0)
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
 		p.add_child(v)
-		var sw := ColorRect.new()
-		sw.custom_minimum_size = Vector2(0, 22)
-		v.add_child(sw)
+		var icon := Label.new()
+		icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		icon.add_theme_font_size_override("font_size", 30)
+		v.add_child(icon)
 		var lb := Label.new()
 		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lb.add_theme_font_size_override("font_size", 13)
+		lb.add_theme_font_size_override("font_size", 12)
 		v.add_child(lb)
-		_slots.append({"panel": p, "swatch": sw, "label": lb})
+		_slots.append({"panel": p, "icon": icon, "label": lb})
 
 	var buzz := HBoxContainer.new()
 	add_child(buzz)
 	buzz.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	buzz.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	buzz.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	buzz.offset_bottom = -82
+	buzz.offset_bottom = -96
 	buzz.add_theme_constant_override("separation", 6)
 	for i in 5:
 		var chip := PanelContainer.new()
@@ -193,11 +199,6 @@ func _build_food_ui() -> void:
 	_buffs_label.modulate = Color(0.6, 1.0, 0.8)
 	$VBox.add_child(_buffs_label)
 
-	_items_label = Label.new()
-	_items_label.add_theme_font_size_override("font_size", 15)
-	_items_label.modulate = Color(0.7, 0.9, 1.0)
-	$VBox.add_child(_items_label)
-
 	# Электронные часы прямо под полоской тошноты (_dizzy).
 	_clock_label = Label.new()
 	_clock_label.add_theme_font_size_override("font_size", 26)
@@ -205,22 +206,48 @@ func _build_food_ui() -> void:
 	$VBox.add_child(_clock_label)
 	$VBox.move_child(_clock_label, _dizzy.get_index() + 1)
 
+# Хотбар: рисуем единый список снаряжения (подносы + таблетки + пистолет).
 func _update_food_ui() -> void:
-	for i in 4:
+	var hb := RunState.hotbar()
+	var sel := RunState.selected_slot
+	# Анимация «отдачи»: пихнуть только что выбранный слот.
+	if sel != _last_selected:
+		if sel >= 0 and sel < _slots.size():
+			_pop_slot((_slots[sel] as Dictionary)["panel"] as Control)
+		_last_selected = sel
+
+	for i in _slots.size():
 		var s: Dictionary = _slots[i]
 		var panel := s["panel"] as PanelContainer
-		var selected := i == RunState.selected_slot
+		var icon := s["icon"] as Label
+		var label := s["label"] as Label
+		if i >= hb.size():
+			panel.visible = false
+			continue
+		panel.visible = true
+		var selected := i == sel
 		panel.add_theme_stylebox_override("panel", _slot_sel if selected else _slot_idle)
-		if i < RunState.trays.size():
-			var tray: Dictionary = RunState.trays[i]
-			(s["swatch"] as ColorRect).color = tray["color"]
-			(s["label"] as Label).text = "%d· %s ×%d" % [
-				i + 1, FoodMenu.stall_name(tray["stall_id"]), (tray["dishes"] as Array).size()]
-			panel.modulate = Color(1, 1, 1) if selected else Color(0.8, 0.8, 0.8)
-		else:
-			(s["swatch"] as ColorRect).color = Color(0.2, 0.2, 0.2, 0.5)
-			(s["label"] as Label).text = "%d· —" % (i + 1)
-			panel.modulate = Color(0.55, 0.55, 0.55)
+		panel.modulate = Color(1, 1, 1) if selected else Color(0.82, 0.82, 0.82)
+		var key := "%d" % (i + 1) if i < 4 else "·"   # цифры только для первых четырёх
+		var entry: Dictionary = hb[i]
+		match str(entry["kind"]):
+			"tray":
+				var tray: Dictionary = entry["tray"]
+				icon.text = "🍱"
+				icon.modulate = tray["color"]
+				label.text = "%s ×%d" % [key, (tray["dishes"] as Array).size()]
+			"pill":
+				icon.text = "💊"
+				icon.modulate = Color(1, 1, 1)
+				label.text = "%s ×%d" % [key, int(entry["qty"])]
+			"gun":
+				icon.text = "🔫"
+				icon.modulate = Color(1, 1, 1)
+				var pl = get_tree().get_first_node_in_group("player")
+				var ready: bool = pl == null or float(pl.gun_cooldown_ratio()) >= 1.0
+				label.text = key if ready else (key + " ⏳")
+				if not ready:
+					panel.modulate = Color(0.6, 0.6, 0.6)
 
 	for i in 5:
 		var b: Dictionary = _buzz[i]
@@ -240,14 +267,15 @@ func _update_food_ui() -> void:
 		parts.append(_buff_ru(e))
 	_buffs_label.text = ("Эффекты: " + ", ".join(parts)) if not parts.is_empty() else ""
 
-	var gun := ""
-	if RunState.has_gun:
-		var pl = get_tree().get_first_node_in_group("player")
-		var ready: bool = pl == null or float(pl.gun_cooldown_ratio()) >= 1.0
-		gun = "пистолет (ПКМ): " + ("готов" if ready else "перезарядка…")
-	var pill := "таблетки: %d (H)" % RunState.pills if RunState.pills > 0 else ""
-	var items := " · ".join(([pill, gun] as Array).filter(func(s): return s != ""))
-	_items_label.text = ("Предметы: " + items) if items != "" else ""
+# «Отдача» слота при выборе: коротко увеличить и плавно вернуть к 1.
+func _pop_slot(panel: Control) -> void:
+	if panel == null:
+		return
+	panel.pivot_offset = panel.size * 0.5
+	panel.scale = Vector2(1.25, 1.25)
+	var tw := create_tween()
+	tw.tween_property(panel, "scale", Vector2.ONE, 0.18) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _buff_ru(e: Dictionary) -> String:
 	var names := {

@@ -6,24 +6,28 @@ class_name CharacterRig
 ##  стороны). Это ВРЕМЕННЫЙ силуэт из примитивов под тун-стиль (Look.mat) —
 ##  по его пропорциям рисуется модель в Blender, а потом он заменяется.
 ##
-##  КАК это работает (важно):
-##   • строится из суставов-Node3D (бёдра→спина→грудь→голова, плечи→руки,
-##     бёдра→ноги). Меши висят на суставах; анимация = поворот суставов в коде.
-##     Поэтому ничего не нужно кейфреймить — режим ожидания/ходьба/бег/спуск
-##     работают сразу.
-##   • вид от 1-го лица: голову прячем только от СВОЕЙ камеры (отдельный visual
-##     layer), а тело/руки/ноги видно, когда смотришь вниз и на спуске с горки.
-##   • предмет в руках: крепи к tray_anchor() и зови set_carry(true) — руки
-##     поднимутся «нести поднос» и предмет будет в кадре.
+##  ДВА РЕЖИМА АНИМАЦИИ:
+##   • Процедурный (по умолчанию): суставы-Node3D крутятся в коде — ожидание,
+##     ходьба, бег, прыжок, спуск с горки, плавание. Ничего кейфреймить не надо,
+##     работает сразу. Это фолбэк для силуэта и для NPC.
+##   • Клипы модели: если задан animation_player_path (AnimationPlayer
+##     импортированной модели), риг ПРОИГРЫВАЕТ клипы по имени состояния
+##     (clip_idle/walk/run/jump/ride/swim), а процедурку выключает.
 ##
-##  КАК подсунуть модель из Blender (когда будет готова):
-##   1) импортируй .glb (скелет + меши + анимации) как сцену;
-##   2) удали узел "Placeholder" этого рига и вставь свою модель внутрь рига;
-##   3) сопоставь свои кости с суставами (head_anchor/hand_anchor_r/tray_anchor)
-##      через BoneAttachment3D ИЛИ оставь процедурную анимацию на свой скелет.
-##  До тех пор силуэт уже двигается и по нему удобно ставить пропорции.
+##  ВИД ОТ 1-го ЛИЦА: голова получает cast_shadow = SHADOWS_ONLY — её не видно
+##  своей камерой (не смотришь изнутри черепа), но ТЕНЬ падает с головой. Тело,
+##  руки и ноги видно, когда смотришь вниз и на спуске с горки.
 ##
-##  ОДИН РИГ — ДЛЯ ВСЕХ: и игрок, и NPC создают его через CharacterRig.make().
+##  ПРЕДМЕТ В РУКАХ: крепи к tray_anchor() и зови set_carry(true) — руки выйдут
+##  вперёд «нести предмет», и он будет в кадре.
+##
+##  ТОЛЩИНА ОТ ВЕСА: set_weight01(0..1) раздувает торс/таз (живот) — игрок зовёт
+##  его от WeightSystem (>90 кг = толстый), дополняя «косолапую» камеру.
+##
+##  КАК подсунуть модель из Blender: импортируй .glb (скелет+меши+анимации),
+##  удали узел "Placeholder", вставь модель внутрь рига и укажи
+##  animation_player_path; перенаправь head_anchor()/hand_anchor_r()/tray_anchor()
+##  на свои кости (BoneAttachment3D). Пропорции силуэта правятся в инспекторе.
 ## ============================================================================
 
 enum Pose { IDLE, WALK, RUN, JUMP, RIDE, SWIM }
@@ -40,13 +44,20 @@ enum Pose { IDLE, WALK, RUN, JUMP, RIDE, SWIM }
 @export var shoe_color: Color = Color(0.15, 0.15, 0.18)
 
 @export_group("Вид от первого лица")
-@export var first_person: bool = false     # прятать голову от своей камеры
+@export var first_person: bool = false     # голова → SHADOWS_ONLY (своя тень с головой)
 
-# Слой «своей головы»: камера игрока его не видит (чтобы не смотреть изнутри
-# черепа), а все прочие камеры — видят (зеркало/спектатор/скриншоты позже).
-const HEAD_LAYER_BIT := 19
+@export_group("Анимации модели (если есть клипы)")
+## Укажи AnimationPlayer импортированной модели — тогда риг играет КЛИПЫ по имени
+## состояния, а процедурная анимация-силуэт выключается (фолбэк остаётся у NPC).
+@export var animation_player_path: NodePath
+@export var clip_idle: String = "idle"
+@export var clip_walk: String = "walk"
+@export var clip_run: String = "run"
+@export var clip_jump: String = "jump"
+@export var clip_ride: String = "ride"
+@export var clip_swim: String = "swim"
 
-# --- Суставы (их крутит анимация) ---
+# --- Суставы (их крутит процедурная анимация) ---
 var _hips: Node3D
 var _spine: Node3D
 var _chest: Node3D
@@ -65,11 +76,17 @@ var _foot_l: Node3D
 var _foot_r: Node3D
 var _tray: Node3D                 # якорь предмета «в руках»
 
-var _head_meshes: Array[MeshInstance3D] = []   # голова/глаза — прячем от своей камеры
+var _head_meshes: Array[MeshInstance3D] = []    # голова/глаза — SHADOWS_ONLY в 1-м лице
+var _belly_meshes: Array[MeshInstance3D] = []   # таз+торс — раздуваем от веса (живот)
 var _hip_h: float = 0.85
 var _phase: float = 0.0          # фаза шага (ходьба/бег/плавание)
 var _idle_t: float = 0.0         # время для дыхания в покое
 var _carry: bool = false         # держим предмет (руки вперёд)
+
+# Клипы модели (если заданы) — иначе процедурка.
+var _anim: AnimationPlayer = null
+var _use_clips: bool = false
+var _clip_state: String = ""
 
 # Покоящиеся повороты рук (плечи слегка в стороны, локти чуть согнуты).
 const ARM_REST_Z := 0.14
@@ -90,7 +107,10 @@ static func make(p_height: float, p_skin: Color, p_outfit: Color,
 
 func _ready() -> void:
 	_build()
-	_pose_idle(0.0)
+	_anim = get_node_or_null(animation_player_path) as AnimationPlayer
+	_use_clips = _anim != null
+	if not _use_clips:
+		_pose_idle(0.0)
 
 # ===========================================================================
 #  ПОСТРОЕНИЕ силуэта (всё в "Placeholder" — удали его, вставляя модель).
@@ -115,14 +135,14 @@ func _build() -> void:
 	var skin := skin_color
 	var cloth := outfit_color
 
-	# Таз + спина (наклоняется в суставе _spine).
+	# Таз + спина (наклоняется в суставе _spine). Таз и торс раздуваются от веса.
 	_hips = _joint(root, Vector3(0, _hip_h, 0))
-	_box(_hips, Vector3(0.20 * h * build, 0.13 * h, 0.15 * h * build), Vector3(0, -0.02 * h, 0), cloth)
+	_belly_meshes.append(_box(_hips, Vector3(0.20 * h * build, 0.13 * h, 0.15 * h * build), Vector3(0, -0.02 * h, 0), cloth))
 	_spine = _joint(_hips, Vector3.ZERO)
-	_box(_spine, Vector3(0.26 * h * build, spine_len, 0.17 * h * build), Vector3(0, spine_len * 0.5, 0), cloth)
+	_belly_meshes.append(_box(_spine, Vector3(0.26 * h * build, spine_len, 0.17 * h * build), Vector3(0, spine_len * 0.5, 0), cloth))
 	_chest = _joint(_spine, Vector3(0, spine_len, 0))
 
-	# Шея + голова (голову прячем от своей камеры в режиме 1-го лица).
+	# Шея + голова (в 1-м лице голова — SHADOWS_ONLY).
 	_capsule(_chest, neck_len, 0.045 * h, Vector3(0, neck_len * 0.5, 0), skin)
 	_head = _joint(_chest, Vector3(0, neck_len, 0))
 	_head_meshes.append(_sphere(_head, head_r, Vector3(0, head_r, 0), skin))
@@ -163,16 +183,26 @@ func _build() -> void:
 	_tray = _joint(_chest, Vector3(0, -0.12 * h, -0.22 * h))
 
 	if first_person:
-		_hide_head_layer()
+		_head_shadow_only()
 
 # ===========================================================================
 #  ПУБЛИЧНЫЙ API для контроллеров (игрок и NPC).
 # ===========================================================================
 
 ## Земная анимация: сама выбирает покой/ходьбу/бег по скорости.
-##   speed     — горизонтальная скорость (м/с)
-##   run_speed — скорость, считающаяся «бегом» (для масштаба амплитуды)
 func animate_ground(speed: float, run_speed: float, grounded: bool, delta: float) -> void:
+	if _use_clips:
+		var n := clip_idle
+		if not grounded:
+			n = clip_jump
+		elif speed >= run_speed * 0.85:
+			n = clip_run
+		elif speed >= 0.25:
+			n = clip_walk
+		_play_clip(n)
+		return
+	if _hips == null:
+		return
 	if not grounded:
 		_pose_jump()
 	elif speed < 0.25:
@@ -184,15 +214,35 @@ func animate_ground(speed: float, run_speed: float, grounded: bool, delta: float
 
 ## Поза спуска с горки (видно ноги, когда смотришь вниз).
 func animate_ride(_delta: float) -> void:
+	if _use_clips:
+		_play_clip(clip_ride)
+		return
+	if _hips == null:
+		return
 	_pose_ride()
 
 ## Плавание (гребки руками + работа ног).
 func animate_swim(speed: float, delta: float) -> void:
+	if _use_clips:
+		_play_clip(clip_swim)
+		return
+	if _hips == null:
+		return
 	_pose_swim(speed, delta)
 
-## Держим предмет в руках (руки выходят вперёд «нести поднос»).
+## Держим предмет в руках (руки выходят вперёд «нести предмет»).
 func set_carry(active: bool) -> void:
 	_carry = active
+
+## Толщина от веса: 0 — норма, 1 — максимум (живот). Игрок зовёт от WeightSystem.
+func set_weight01(t: float) -> void:
+	t = clampf(t, 0.0, 1.0)
+	if _use_clips:
+		scale = Vector3(1.0 + t * 0.25, 1.0, 1.0 + t * 0.25)   # модель: лёгкое раздувание
+		return
+	var s := Vector3(1.0 + t * 0.6, 1.0 + t * 0.12, 1.0 + t * 0.65)
+	for m in _belly_meshes:
+		m.scale = s
 
 ## Якорь для предмета «в руках» (крепи сюда MeshInstance подноса/предмета).
 func tray_anchor() -> Node3D:
@@ -204,10 +254,16 @@ func hand_anchor_r() -> Node3D:
 func head_anchor() -> Node3D:
 	return _head
 
-## Спрятать голову от конкретной камеры (вид от 1-го лица).
-func hide_head_for_camera(cam: Camera3D) -> void:
-	if cam:
-		cam.cull_mask &= ~(1 << HEAD_LAYER_BIT)
+# ===========================================================================
+#  Клипы модели.
+# ===========================================================================
+func _play_clip(n: String) -> void:
+	if _anim == null or n == "" or not _anim.has_animation(n):
+		return
+	if _clip_state == n:
+		return
+	_clip_state = n
+	_anim.play(n, 0.15)
 
 # ===========================================================================
 #  ПОЗЫ (повороты суставов; значения в радианах, абсолютные = покой + смещение).
@@ -353,10 +409,9 @@ func _sphere(parent: Node3D, radius: float, pos: Vector3, color: Color) -> MeshI
 	return m
 
 func _eye(parent: Node3D, pos: Vector3) -> MeshInstance3D:
-	var m := _sphere(parent, total_height * 0.018 * head_scale, pos, Color(0.08, 0.06, 0.1))
-	return m
+	return _sphere(parent, total_height * 0.018 * head_scale, pos, Color(0.08, 0.06, 0.1))
 
-# Голову и глаза — на отдельный visual layer, чтобы своя камера их не рисовала.
-func _hide_head_layer() -> void:
+# Голова и глаза — только тень: не видно своей башки, но тень падает с головой.
+func _head_shadow_only() -> void:
 	for m in _head_meshes:
-		m.layers = 1 << HEAD_LAYER_BIT
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
