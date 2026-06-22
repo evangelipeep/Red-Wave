@@ -46,6 +46,12 @@ enum Pose { IDLE, WALK, RUN, JUMP, RIDE, SWIM }
 @export_group("Вид от первого лица")
 @export var first_person: bool = false     # голова → SHADOWS_ONLY (своя тень с головой)
 
+@export_group("Модель из Blender (необязательно)")
+## Готовая модель (.glb как PackedScene). Если задана — риг ВМЕСТО силуэта вставляет её,
+## сам находит AnimationPlayer и якоря (по именам Head/HandR/TrayAnchor, иначе пустышки).
+## Пусто → строится процедурный силуэт-заглушка (работает сразу, без модели).
+@export var model_scene: PackedScene
+
 @export_group("Анимации модели (если есть клипы)")
 ## Укажи AnimationPlayer импортированной модели — тогда риг играет КЛИПЫ по имени
 ## состояния, а процедурная анимация-силуэт выключается (фолбэк остаётся у NPC).
@@ -107,15 +113,78 @@ static func make(p_height: float, p_skin: Color, p_outfit: Color,
 
 func _ready() -> void:
 	_build()
-	_anim = get_node_or_null(animation_player_path) as AnimationPlayer
+	# Явно указанный AnimationPlayer имеет приоритет; иначе берём авто-найденный из модели.
+	if not animation_player_path.is_empty():
+		_anim = get_node_or_null(animation_player_path) as AnimationPlayer
 	_use_clips = _anim != null
-	if not _use_clips:
+	# Покой кейфреймим только для процедурного силуэта (у модели — свои клипы/статика).
+	if not _use_clips and model_scene == null:
 		_pose_idle(0.0)
 
 # ===========================================================================
-#  ПОСТРОЕНИЕ силуэта (всё в "Placeholder" — удали его, вставляя модель).
+#  ПОСТРОЕНИЕ: модель из Blender (если задана) ИЛИ процедурный силуэт-заглушка.
 # ===========================================================================
 func _build() -> void:
+	if model_scene != null:
+		_build_from_model()
+	else:
+		_build_placeholder()
+
+# Вставляем готовую модель: ищем AnimationPlayer и якоря (Head/HandR/TrayAnchor).
+func _build_from_model() -> void:
+	var inst := model_scene.instantiate()
+	inst.name = "Model"
+	add_child(inst)
+	var ap := _find_anim(inst)
+	if ap != null:
+		_anim = ap
+	_tray = _find_named(inst, ["TrayAnchor", "Tray"])
+	if _tray == null:
+		_tray = _make_anchor(Vector3(0, total_height * 0.55, -total_height * 0.13))
+	_head = _find_named(inst, ["Head", "head", "mixamorig:Head"])
+	if _head == null:
+		_head = _make_anchor(Vector3(0, total_height * 0.92, 0))
+	_hand_r = _find_named(inst, ["HandR", "hand_r", "mixamorig:RightHand"])
+	if _hand_r == null:
+		_hand_r = _tray
+	# 1-е лицо: прячем меши головы (своя башка не загораживает обзор), тень остаётся.
+	if first_person:
+		for m in _collect_meshes(_head):
+			m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+
+func _find_anim(n: Node) -> AnimationPlayer:
+	if n is AnimationPlayer:
+		return n
+	for c in n.get_children():
+		var r := _find_anim(c)
+		if r != null:
+			return r
+	return null
+
+func _find_named(root: Node, names: Array) -> Node3D:
+	for nm in names:
+		var f := root.find_child(str(nm), true, false)
+		if f is Node3D:
+			return f
+	return null
+
+func _make_anchor(pos: Vector3) -> Node3D:
+	var a := Node3D.new()
+	a.position = pos
+	add_child(a)
+	return a
+
+func _collect_meshes(n: Node) -> Array[MeshInstance3D]:
+	var out: Array[MeshInstance3D] = []
+	if n == null:
+		return out
+	if n is MeshInstance3D:
+		out.append(n)
+	for c in n.get_children():
+		out.append_array(_collect_meshes(c))
+	return out
+
+func _build_placeholder() -> void:
 	var root := Node3D.new()
 	root.name = "Placeholder"
 	add_child(root)

@@ -28,6 +28,11 @@ class_name PlayerController
 @export var splash_sound: AudioStream        # звук брызг (назначь .wav/.ogg в инспекторе)
 @export var gun_sound: AudioStream           # звук выстрела пистолета-отталкивателя
 
+@export_group("Модель игрока")
+## Готовая модель из Blender (.glb). Пусто → процедурный силуэт-заглушка.
+## Перетащи сюда assets/models/player.glb в инспекторе узла Player.
+@export var player_model: PackedScene
+
 var swimming: bool = false
 var _water_surface_y: float = 0.0           # уровень поверхности текущей воды
 var _in_river: bool = false                 # в ленивой реке (есть течение)
@@ -84,6 +89,7 @@ func _ready() -> void:
 # SHADOWS_ONLY (своя тень с головой), тело/руки/ноги видно, когда смотришь вниз/на спуске.
 func _build_visual() -> void:
 	_rig = CharacterRig.make(1.78, Color(0.85, 0.68, 0.55), Color(0.45, 0.30, 0.55), true)
+	_rig.model_scene = player_model            # задана модель → риг возьмёт её вместо силуэта
 	_rig.position = Vector3(0, -0.9, 0)        # ступни — у нижней точки капсулы
 	add_child(_rig)
 	# Кэш мешей предмета в руке (поднос/таблетка/пистолет) — меняем только при смене вида.
