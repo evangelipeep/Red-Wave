@@ -14,13 +14,13 @@ const STALLS: Dictionary = {
 		"color": Color(0.88, 0.24, 0.20),    # красный
 		"effect": "heavy", "effect_min": 30.0,   # тяжесть: скорость ×0.8
 		"dishes": [
-			{"id": "fries",  "name": "Картошка фри",      "price": 2, "kg": 1.5, "dizzy": -2,
+			{"id": "fries",  "name": "Картошка фри",      "price": 2, "kg": 1.5, "dizzy": -2, "icon": "res://assets/ui/french_fries.png",
 				"desc": "Золотистые соломки до хруста. Кетчуп цвета свежей добычи — макай не стесняясь."},
-			{"id": "cheese", "name": "Чизбургер",         "price": 2, "kg": 2.0, "dizzy": -3,
+			{"id": "cheese", "name": "Чизбургер",         "price": 2, "kg": 2.0, "dizzy": -3, "icon": "res://assets/ui/burger.png",
 				"desc": "Сочная котлета и плавленый сыр. Кусай во всю клыкастую пасть."},
-			{"id": "double", "name": "Двойной чизбургер", "price": 4, "kg": 3.0, "dizzy": -4,
+			{"id": "double", "name": "Двойной чизбургер", "price": 4, "kg": 3.0, "dizzy": -4, "icon": "res://assets/ui/big_burger.png",
 				"desc": "Двойная котлета для тех, кто охотился всю ночь. Тяжесть в брюхе прилагается."},
-			{"id": "soda",   "name": "Газировка",         "price": 2, "kg": 0.5, "dizzy": -1,
+			{"id": "soda",   "name": "Газировка",         "price": 2, "kg": 0.5, "dizzy": -1, "icon": "res://assets/ui/cola.png",
 				"desc": "Шипучие пузырьки, красные как закат над парком. Утоляет жажду (не ту самую)."},
 		],
 	},
@@ -29,11 +29,11 @@ const STALLS: Dictionary = {
 		"color": Color(0.30, 0.70, 0.35),    # зелёный
 		"effect": "spicy", "effect_min": 0.0,    # остро: следующий туалет без кулдауна
 		"dishes": [
-			{"id": "burrito",   "name": "Буррито",      "price": 2, "kg": 1.5, "dizzy": -2,
+			{"id": "burrito",   "name": "Буррито",      "price": 2, "kg": 1.5, "dizzy": -2, "icon": "res://assets/ui/burrito.png",
 				"desc": "Остро завёрнутая добыча. Жжёт так, что в туалет — немедленно."},
 			{"id": "taco",      "name": "Тако",         "price": 1, "kg": 1.0, "dizzy": -1,
 				"desc": "Хрустящая лодочка со специями. Маленький укус — большой пожар."},
-			{"id": "tomato_jc", "name": "Томатный сок", "price": 1, "kg": 0.3, "dizzy": -1,
+			{"id": "tomato_jc", "name": "Томатный сок", "price": 1, "kg": 0.3, "dizzy": -1, "icon": "res://assets/ui/tomato.png",
 				"desc": "Густой, красный, солёный. Почти как настоящий… почти."},
 		],
 	},
@@ -42,9 +42,9 @@ const STALLS: Dictionary = {
 		"color": Color(0.92, 0.80, 0.20),    # жёлтый
 		"effect": "hotsoup", "effect_min": 30.0, # горячий суп: сжигание калорий ×1.5
 		"dishes": [
-			{"id": "tom_yam", "name": "Том ям", "price": 5, "kg": 1.0, "dizzy": -3,
+			{"id": "tom_yam", "name": "Том ям", "price": 5, "kg": 1.0, "dizzy": -3, "icon": "res://assets/ui/tom_yam.png",
 				"desc": "Острый горячий суп — кровь закипает, тело потеет, метаболизм визжит."},
-			{"id": "ramen",   "name": "Рамен",  "price": 4, "kg": 1.5, "dizzy": -3,
+			{"id": "ramen",   "name": "Рамен",  "price": 4, "kg": 1.5, "dizzy": -3, "icon": "res://assets/ui/ramen.png",
 				"desc": "Наваристый бульон и лапша. Греет изнутри лучше тёплой шеи жертвы."},
 		],
 	},
@@ -53,9 +53,9 @@ const STALLS: Dictionary = {
 		"color": Color(0.30, 0.55, 0.92),    # синий
 		"effect": "light", "effect_min": 0.0,    # лёгкая еда: почти без веса
 		"dishes": [
-			{"id": "salad",  "name": "Салат томат-огурец", "price": 1, "kg": 0.25, "dizzy": -1,
+			{"id": "salad",  "name": "Салат томат-огурец", "price": 1, "kg": 0.25, "dizzy": -1, "icon": "res://assets/ui/salat.png",
 				"desc": "Свежесть для следящих за фигурой кровопийц. Почти без веса, совсем без вины."},
-			{"id": "tomato", "name": "Помидор",            "price": 1, "kg": 0.25, "dizzy": -1,
+			{"id": "tomato", "name": "Помидор",            "price": 1, "kg": 0.25, "dizzy": -1, "icon": "res://assets/ui/tomato.png",
 				"desc": "Просто помидор. Вампир тоже иногда хочет чего-то невинного."},
 		],
 	},
@@ -64,13 +64,13 @@ const STALLS: Dictionary = {
 		"color": Color(0.58, 0.36, 0.76),    # фиолетовый
 		"effect": "caffeine", "effect_min": 10.0, # кофеин: скорость ×2
 		"dishes": [
-			{"id": "bubble_tea", "name": "Бабл-ти с кофе", "price": 5, "kg": 0.5, "dizzy": 0,
+			{"id": "bubble_tea", "name": "Бабл-ти с кофе", "price": 5, "kg": 0.5, "dizzy": 0, "icon": "res://assets/ui/buble_tea.png",
 				"desc": "Тапиока, кофе и дерзость. Пузырьки бодрят сильнее укуса."},
-			{"id": "bumble",     "name": "Бамбл-кофе",     "price": 5, "kg": 0.3, "dizzy": 0,
+			{"id": "bumble",     "name": "Бамбл-кофе",     "price": 5, "kg": 0.3, "dizzy": 0, "icon": "res://assets/ui/coffe.png",
 				"desc": "Апельсин и эспрессо — жужжишь, как комар на рассвете."},
-			{"id": "esp_tonic",  "name": "Эспрессо-тоник", "price": 5, "kg": 0.2, "dizzy": 0,
+			{"id": "esp_tonic",  "name": "Эспрессо-тоник", "price": 5, "kg": 0.2, "dizzy": 0, "icon": "res://assets/ui/coffe.png",
 				"desc": "Горький эспрессо в игристом тонике. За спиной будто крылья (фигурально)."},
-			{"id": "matcha",     "name": "Мачча-латте",    "price": 4, "kg": 0.4, "dizzy": 0,
+			{"id": "matcha",     "name": "Мачча-латте",    "price": 4, "kg": 0.4, "dizzy": 0, "icon": "res://assets/ui/coffe.png",
 				"desc": "Зелёная, как зависть дневных людей. Мягкий кофеиновый разгон."},
 		],
 	},
@@ -90,6 +90,13 @@ func stall_color(stall_id: String) -> Color:
 
 func dishes(stall_id: String) -> Array:
 	return STALLS.get(stall_id, {}).get("dishes", [])
+
+# Картинка блюда (Texture2D) из его поля "icon" или null, если иконки нет/файл отсутствует.
+func dish_icon(d: Dictionary) -> Texture2D:
+	var p := str(d.get("icon", ""))
+	if p != "" and ResourceLoader.exists(p):
+		return load(p)
+	return null
 
 # Описание блюда по id лавки и id блюда (или пустой словарь).
 func dish(stall_id: String, dish_id: String) -> Dictionary:

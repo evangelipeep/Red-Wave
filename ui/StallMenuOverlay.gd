@@ -155,10 +155,19 @@ func _dish_card(d: Dictionary, sid: String, col: Color) -> PanelContainer:
 	pic.custom_minimum_size = Vector2(66, 66)
 	var picc := CenterContainer.new()
 	pic.add_child(picc)
-	var emoji := Label.new()
-	emoji.add_theme_font_size_override("font_size", 34)
-	emoji.text = STALL_EMOJI.get(sid, "🍽")
-	picc.add_child(emoji)
+	var dt := FoodMenu.dish_icon(d)
+	if dt != null:
+		var tr := TextureRect.new()
+		tr.texture = dt
+		tr.custom_minimum_size = Vector2(58, 58)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		picc.add_child(tr)
+	else:
+		var emoji := Label.new()
+		emoji.add_theme_font_size_override("font_size", 34)
+		emoji.text = STALL_EMOJI.get(sid, "🍽")
+		picc.add_child(emoji)
 	h.add_child(pic)
 
 	var info := VBoxContainer.new()

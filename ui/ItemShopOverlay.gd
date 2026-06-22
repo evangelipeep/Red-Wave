@@ -21,9 +21,11 @@ func _ready() -> void:
 func _catalog() -> Array:
 	return [
 		{"id": "gun", "name": "Водяной пистолет", "price": GameConstants.GUN_COST, "icon": "🔫",
+			"icon_path": "res://assets/ui/gun.png",
 			"desc": "Брызгает ледяной водой — отбрасывает зазевавшихся гостей и комаров-NPC. Чистое веселье.",
 			"effect": "ПКМ — толкает игроков и NPC.", "owned": RunState.has_gun},
 		{"id": "pill", "name": "Таблетка от тошноты", "price": GameConstants.PILL_COST, "icon": "💊",
+			"icon_path": "res://assets/ui/pills.png",
 			"desc": "Горькая пилюля от качки. Глотнул — и карусель в башке замерла.",
 			"effect": "Снимает тошноту в 0 (клавиша H).", "owned": false},
 		{"id": "souvenir", "name": "Сувенир «Красная Река»", "price": SOUVENIR_COST, "icon": "🎏",
@@ -160,10 +162,19 @@ func _item_card(item: Dictionary, accent: Color) -> PanelContainer:
 	pic.custom_minimum_size = Vector2(66, 66)
 	var picc := CenterContainer.new()
 	pic.add_child(picc)
-	var emoji := Label.new()
-	emoji.add_theme_font_size_override("font_size", 34)
-	emoji.text = str(item["icon"])
-	picc.add_child(emoji)
+	var ipath := str(item.get("icon_path", ""))
+	if ipath != "" and ResourceLoader.exists(ipath):
+		var tr := TextureRect.new()
+		tr.texture = load(ipath)
+		tr.custom_minimum_size = Vector2(58, 58)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		picc.add_child(tr)
+	else:
+		var emoji := Label.new()
+		emoji.add_theme_font_size_override("font_size", 34)
+		emoji.text = str(item["icon"])
+		picc.add_child(emoji)
 	h.add_child(pic)
 
 	var info := VBoxContainer.new()

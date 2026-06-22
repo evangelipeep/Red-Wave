@@ -24,6 +24,8 @@ var _slots: Array = []        # [{panel, icon, label}] — пул хотбара
 var _buzz: Array = []         # [{chip, dot, label}] ×5
 var _buffs_label: Label
 var _clock_label: Label   # электронные часы под полоской тошноты
+var _tex_pill: Texture2D  # иконки предметов хотбара (или null → эмодзи-фолбэк)
+var _tex_gun: Texture2D
 
 const HOTBAR_SLOTS := 6           # пул слотов: до 4 подносов + таблетки + пистолет
 var _last_selected: int = -1      # для анимации «отдачи» при смене активного слота
@@ -133,6 +135,8 @@ func _phase_ru(p: String) -> String:
 func _build_food_ui() -> void:
 	# Рамки слотов берём из Look.slot_style (общая «ячейка» — картинка из assets/ui,
 	# иначе плоский фолбэк). Те же слоты переиспользуются для сундуков в будущем.
+	_tex_pill = _load_icon("res://assets/ui/pills.png")
+	_tex_gun = _load_icon("res://assets/ui/gun.png")
 	var inv := HBoxContainer.new()
 	add_child(inv)
 	inv.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -150,6 +154,13 @@ func _build_food_ui() -> void:
 		v.add_theme_constant_override("separation", 0)
 		v.alignment = BoxContainer.ALIGNMENT_CENTER
 		p.add_child(v)
+		# Картинка предмета поверх рамки (если есть иконка) — иначе эмодзи-фолбэк.
+		var tex := TextureRect.new()
+		tex.custom_minimum_size = Vector2(52, 52)
+		tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tex.visible = false
+		v.add_child(tex)
 		var icon := Label.new()
 		icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		icon.add_theme_font_size_override("font_size", 30)
@@ -158,7 +169,7 @@ func _build_food_ui() -> void:
 		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lb.add_theme_font_size_override("font_size", 12)
 		v.add_child(lb)
-		_slots.append({"panel": p, "icon": icon, "label": lb})
+		_slots.append({"panel": p, "tex": tex, "icon": icon, "label": lb})
 
 	var buzz := HBoxContainer.new()
 	add_child(buzz)
@@ -194,6 +205,23 @@ func _build_food_ui() -> void:
 	$VBox.add_child(_clock_label)
 	$VBox.move_child(_clock_label, _dizzy.get_index() + 1)
 
+func _load_icon(path: String) -> Texture2D:
+	return load(path) if ResourceLoader.exists(path) else null
+
+# Иконка слота: есть картинка → показываем её (поверх рамки); нет → эмодзи-фолбэк.
+func _set_slot_icon(s: Dictionary, t: Texture2D, emoji: String, col: Color) -> void:
+	var tex := s["tex"] as TextureRect
+	var ic := s["icon"] as Label
+	if t != null:
+		tex.texture = t
+		tex.visible = true
+		ic.visible = false
+	else:
+		tex.visible = false
+		ic.visible = true
+		ic.text = emoji
+		ic.modulate = col
+
 # Хотбар: рисуем единый список снаряжения (подносы + таблетки + пистолет).
 func _update_food_ui() -> void:
 	var hb := RunState.hotbar()
@@ -207,7 +235,6 @@ func _update_food_ui() -> void:
 	for i in _slots.size():
 		var s: Dictionary = _slots[i]
 		var panel := s["panel"] as PanelContainer
-		var icon := s["icon"] as Label
 		var label := s["label"] as Label
 		if i >= hb.size():
 			panel.visible = false
@@ -221,16 +248,15 @@ func _update_food_ui() -> void:
 		match str(entry["kind"]):
 			"tray":
 				var tray: Dictionary = entry["tray"]
-				icon.text = "🍱"
-				icon.modulate = tray["color"]
-				label.text = "%s ×%d" % [key, (tray["dishes"] as Array).size()]
+				var dishes := tray["dishes"] as Array
+				var dt: Texture2D = FoodMenu.dish_icon(dishes[0]) if not dishes.is_empty() else null
+				_set_slot_icon(s, dt, "🍱", tray["color"])
+				label.text = "%s ×%d" % [key, dishes.size()]
 			"pill":
-				icon.text = "💊"
-				icon.modulate = Color(1, 1, 1)
+				_set_slot_icon(s, _tex_pill, "💊", Color.WHITE)
 				label.text = "%s ×%d" % [key, int(entry["qty"])]
 			"gun":
-				icon.text = "🔫"
-				icon.modulate = Color(1, 1, 1)
+				_set_slot_icon(s, _tex_gun, "🔫", Color.WHITE)
 				var pl = get_tree().get_first_node_in_group("player")
 				var ready: bool = pl == null or float(pl.gun_cooldown_ratio()) >= 1.0
 				label.text = key if ready else (key + " ⏳")
