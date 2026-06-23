@@ -31,9 +31,9 @@ const STALLS: Dictionary = {
 		"dishes": [
 			{"id": "burrito",   "name": "Буррито",      "price": 2, "kg": 1.5, "dizzy": -2, "icon": "res://assets/ui/burrito.png",
 				"desc": "Остро завёрнутая добыча. Жжёт так, что в туалет — немедленно."},
-			{"id": "taco",      "name": "Тако",         "price": 1, "kg": 1.0, "dizzy": -1,
+			{"id": "taco",      "name": "Тако",         "price": 1, "kg": 1.0, "dizzy": -1, "icon": "res://assets/ui/tako.png",
 				"desc": "Хрустящая лодочка со специями. Маленький укус — большой пожар."},
-			{"id": "tomato_jc", "name": "Томатный сок", "price": 1, "kg": 0.3, "dizzy": -1, "icon": "res://assets/ui/tomato.png",
+			{"id": "tomato_jc", "name": "Томатный сок", "price": 1, "kg": 0.3, "dizzy": -1, "icon": "res://assets/ui/tomato_jusie.png",
 				"desc": "Густой, красный, солёный. Почти как настоящий… почти."},
 		],
 	},
