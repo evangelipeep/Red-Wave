@@ -206,7 +206,7 @@ func _build_food_ui() -> void:
 	$VBox.move_child(_clock_label, _dizzy.get_index() + 1)
 
 func _load_icon(path: String) -> Texture2D:
-	return load(path) if ResourceLoader.exists(path) else null
+	return Look.icon(path)   # общий кэш иконок
 
 # Иконка слота: есть картинка → показываем её (поверх рамки); нет → эмодзи-фолбэк.
 func _set_slot_icon(s: Dictionary, t: Texture2D, emoji: String, col: Color) -> void:

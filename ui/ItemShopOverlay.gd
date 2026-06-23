@@ -162,10 +162,10 @@ func _item_card(item: Dictionary, accent: Color) -> PanelContainer:
 	pic.custom_minimum_size = Vector2(66, 66)
 	var picc := CenterContainer.new()
 	pic.add_child(picc)
-	var ipath := str(item.get("icon_path", ""))
-	if ipath != "" and ResourceLoader.exists(ipath):
+	var itex := Look.icon(str(item.get("icon_path", "")))
+	if itex != null:
 		var tr := TextureRect.new()
-		tr.texture = load(ipath)
+		tr.texture = itex
 		tr.custom_minimum_size = Vector2(58, 58)
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

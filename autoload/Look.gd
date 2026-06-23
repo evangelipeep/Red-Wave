@@ -89,6 +89,18 @@ const SLOT_TEX_SEL := "res://assets/ui/slot_selected.png"
 
 var _slot_idle_cache: StyleBox
 var _slot_sel_cache: StyleBox
+var _icon_cache: Dictionary = {}   # path -> Texture2D (грузим каждую картинку ОДИН раз)
+
+# Единая точка загрузки иконок: грузит файл один раз и кэширует (и null тоже —
+# чтобы не дёргать диск на отсутствующий файл). Зови отовсюду: Look.icon(path).
+func icon(path: String) -> Texture2D:
+	if path == "":
+		return null
+	if _icon_cache.has(path):
+		return _icon_cache[path]
+	var t: Texture2D = load(path) if ResourceLoader.exists(path) else null
+	_icon_cache[path] = t
+	return t
 
 func slot_style(selected: bool) -> StyleBox:
 	if selected:

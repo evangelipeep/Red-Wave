@@ -91,12 +91,9 @@ func stall_color(stall_id: String) -> Color:
 func dishes(stall_id: String) -> Array:
 	return STALLS.get(stall_id, {}).get("dishes", [])
 
-# Картинка блюда (Texture2D) из его поля "icon" или null, если иконки нет/файл отсутствует.
+# Картинка блюда (Texture2D) из поля "icon" или null. Кэш — в Look.icon (грузим раз).
 func dish_icon(d: Dictionary) -> Texture2D:
-	var p := str(d.get("icon", ""))
-	if p != "" and ResourceLoader.exists(p):
-		return load(p)
-	return null
+	return Look.icon(str(d.get("icon", "")))
 
 # Описание блюда по id лавки и id блюда (или пустой словарь).
 func dish(stall_id: String, dish_id: String) -> Dictionary:
