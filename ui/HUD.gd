@@ -137,16 +137,24 @@ func _build_food_ui() -> void:
 	# иначе плоский фолбэк). Те же слоты переиспользуются для сундуков в будущем.
 	_tex_pill = _load_icon("res://assets/ui/pills.png")
 	_tex_gun = _load_icon("res://assets/ui/gun.png")
+	# Полоса хотбара во всю ширину у нижнего края, слоты по центру (надёжнее, чем
+	# точечный CENTER_BOTTOM — тот «расплывался» с контейнером).
 	var inv := HBoxContainer.new()
 	add_child(inv)
-	inv.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	inv.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	inv.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	inv.offset_bottom = -14
+	inv.anchor_left = 0.0
+	inv.anchor_right = 1.0
+	inv.anchor_top = 1.0
+	inv.anchor_bottom = 1.0
+	inv.offset_left = 0.0
+	inv.offset_right = 0.0
+	inv.offset_top = -122.0
+	inv.offset_bottom = -10.0
+	inv.alignment = BoxContainer.ALIGNMENT_CENTER
 	inv.add_theme_constant_override("separation", 8)
 	for i in HOTBAR_SLOTS:
 		var p := PanelContainer.new()
 		p.custom_minimum_size = Vector2(88, 74)
+		p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		p.add_theme_stylebox_override("panel", Look.slot_style(false))
 		p.visible = false
 		inv.add_child(p)
@@ -173,13 +181,17 @@ func _build_food_ui() -> void:
 
 	var buzz := HBoxContainer.new()
 	add_child(buzz)
-	buzz.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	buzz.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	buzz.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	buzz.offset_bottom = -96
+	buzz.anchor_left = 0.0
+	buzz.anchor_right = 1.0
+	buzz.anchor_top = 1.0
+	buzz.anchor_bottom = 1.0
+	buzz.offset_top = -176.0
+	buzz.offset_bottom = -136.0
+	buzz.alignment = BoxContainer.ALIGNMENT_CENTER
 	buzz.add_theme_constant_override("separation", 6)
 	for i in 5:
 		var chip := PanelContainer.new()
+		chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		chip.visible = false
 		buzz.add_child(chip)
 		var h := HBoxContainer.new()
