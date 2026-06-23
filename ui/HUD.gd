@@ -28,6 +28,7 @@ var _tex_pill: Texture2D  # иконки предметов хотбара (ил
 var _tex_gun: Texture2D
 
 const HOTBAR_SLOTS := 6           # пул слотов: до 4 подносов + таблетки + пистолет
+const MIN_HOTBAR_SLOTS := 4       # столько пустых слотов видно всегда
 var _last_selected: int = -1      # для анимации «отдачи» при смене активного слота
 
 func _ready() -> void:
@@ -244,18 +245,27 @@ func _update_food_ui() -> void:
 			_pop_slot((_slots[sel] as Dictionary)["panel"] as Control)
 		_last_selected = sel
 
+	# Слоты видны ВСЕГДА (минимум 4 пустых), сверх — занятые таблетками/пистолетом.
+	var shown := clampi(maxi(MIN_HOTBAR_SLOTS, hb.size()), 0, _slots.size())
 	for i in _slots.size():
 		var s: Dictionary = _slots[i]
 		var panel := s["panel"] as PanelContainer
 		var label := s["label"] as Label
-		if i >= hb.size():
+		if i >= shown:
 			panel.visible = false
 			continue
 		panel.visible = true
 		var selected := i == sel
 		panel.add_theme_stylebox_override("panel", Look.slot_style(selected))
-		panel.modulate = Color(1, 1, 1) if selected else Color(0.82, 0.82, 0.82)
 		var key := "%d" % (i + 1) if i < 4 else "·"   # цифры только для первых четырёх
+		if i >= hb.size():
+			# Пустой слот: только рамка + номер, без иконки.
+			(s["tex"] as TextureRect).visible = false
+			(s["icon"] as Label).visible = false
+			label.text = key
+			panel.modulate = Color(0.55, 0.55, 0.55)
+			continue
+		panel.modulate = Color(1, 1, 1) if selected else Color(0.82, 0.82, 0.82)
 		var entry: Dictionary = hb[i]
 		match str(entry["kind"]):
 			"tray":
